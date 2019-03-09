@@ -1,3 +1,34 @@
+v3.6.0 2019-03-01
+-----------------
+
+- A `[%%cstruct type ...]` declaration generates many values that
+  are potentially unused. The code generator in `ppx_cstruct` now
+  guarantees that there will be no more "unused value" (warning 32)
+  statements from use of the ppx form. (#228 @emillon)
+- Actually run the ppx tests instead of just building them.
+  (#227 @emillon to fix #226 from @XVilka)
+
+
+v3.5.0 2019-02-26
+-----------------
+
+- Remove trailing spaces in hexdump output (#219 @emillon)
+- Add `Cstruct.rev` to allocate a reversed cstruct (#221 @emillon)
+- `Cstruct_unix` now uses the post-OCaml 4.06 `Unix.map_file`
+  instead of the deprecated Bigarray `map_file` that was removed
+  in OCaml 4.08 (@avsm, see ocaml/ocaml#2263)
+- Remove unnecessary `(wrapped false)` in the build system (@avsm)
+- Correct ocamldoc to the right `cstruct-ppx` package pointer (@avsm)
+
+v3.4.0 2019-02-02
+-----------------
+
+- Remove old compatibility packages for `cstruct.lwt`, `cstruct.async`,
+  `cstruct.ppx` and `cstruct.unix`.  These were deprecated in
+  cstruct.3.0.0 in favour of counter part libraries with a dash
+  in the name (`cstruct-lwt`, `cstruct-async`, `cstruct.unix`)
+  or `ppx_cstruct` for the PPX extension. (@avsm)
+
 v3.3.0 2019-01-22
 -----------------
 

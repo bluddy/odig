@@ -1,12 +1,13 @@
 odig — Lookup documentation of installed OCaml packages
 -------------------------------------------------------------------------------
-v0.0.3-19-g44a3d1e
+v0.0.4
 
 odig is a command line tool to lookup documentation of installed OCaml
 packages. It shows package metadata, readmes, change logs, licenses,
 cross-referenced `odoc` API documentation and manuals.
 
-odig is distributed under the ISC license.
+odig is distributed under the ISC license. The theme fonts have their
+own [licenses](LICENSE.md).
 
 Homepage: https://erratique.ch/software/odig  
 
@@ -14,7 +15,7 @@ Homepage: https://erratique.ch/software/odig
 
 odig can be installed with `opam`:
 
-    opam install odoc ocaml-manual odig
+    opam install ocaml-manual odig
 
 If you don't use `opam` consult the [`opam`](opam) file for build
 instructions.
@@ -39,8 +40,12 @@ A sample output of generated API documentation and manuals on a
 best-effort maximal set of packages of the OCaml opam repository is
 available [here](https://b0-system.github.io/odig/doc/).
 
+The [Vg](https://b0-system.github.io/odig/doc/vg/Vg/index.html) module
+and its sub-modules is a good example to look at, it has a good mix of
+documentation cases.
+
 The different themes distributed with `odig` can be seen on the sample
-at these addresses:
+at the following addresses.
 
 * https://b0-system.github.io/odig/doc@odig.dark/
 * https://b0-system.github.io/odig/doc@odig.light/
@@ -50,6 +55,7 @@ at these addresses:
 * https://b0-system.github.io/odig/doc@odig.solarized.light/
 * https://b0-system.github.io/odig/doc@odoc.default/
 
-The [Vg](https://b0-system.github.io/odig/doc/vg/Vg/index.html) module
-and its sub-modules is a good example to look at, it has a good
-mix of documentation cases.
+Note that for technical reasons the OCaml manual under these addresses
+is always themed according to `odig.light`. This is not what happens
+if you use `odig` for yourself, the manual will render according to
+your theme's color scheme.

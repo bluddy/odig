@@ -1,6 +1,6 @@
 dockerfile —  Dockerfile eDSL and distribution support
 -----------------------------------------------------
-v5.0.0
+v6.1.0
 
 [Docker](http://docker.com) is a container manager that can build images
 automatically by reading the instructions from a `Dockerfile`. A Dockerfile is

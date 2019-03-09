@@ -1,6 +1,6 @@
 Uucp — Unicode character properties for OCaml
 -------------------------------------------------------------------------------
-v11.0.0 — Unicode version 11.0.0
+v12.0.0 — Unicode version 12.0.0
 
 Uucp is an OCaml library providing efficient access to a selection of
 character properties of the [Unicode character database][1].

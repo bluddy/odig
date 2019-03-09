@@ -1,4 +1,9 @@
-v11.0.0 2017-06-06 Lausanne
+v12.0.0 2019-03-07 La Forclaz (VS)
+----------------------------------
+
+- Support for Unicode 12.0.0
+
+v11.0.0 2018-06-06 Lausanne
 ---------------------------
 
 - Support for Unicode 11.0.0

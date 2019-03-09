@@ -1,10 +1,107 @@
-1.6.3 (08/01/2019)
+1.8.0 (07/03/2019)
 ------------------
+
+- Clean up watch mode polling loop: improves signal handling and error handling
+  during polling (#1912, fix #1907, fix #1671, @aalekseyev)
+
+- Change status messages during polling to be one-line, so that the messages are
+  correctly erased by ^K. (#1912, @aalekseyev)
+
+- Add support for `.cxx` extension for C++ stubs (#1831, @rgrinberg)
+
+- Add `DUNE_WORKSPACE` variable. This variable is equivalent to setting
+  `--workspace` in the command line. (#1711, fix #1503, @rgrinberg)
+
+- Add `c_flags` and `cxx_flags` to env profile settings (#1700 and #1800,
+  @gretay-js)
+
+- Format `dune printenv` output (#1867, fix #1862, @emillon)
+
+- Add the `(promote-into <dir>)` and `(promote-until-clean-into
+  <dir>)` modes for `(rule ...)` stanzas, so that files can be
+  promoted in another directory than the current one. For instance,
+  this is used in merlin to promote menhir generated files in a
+  directory that depends on the version of the compiler (#1890, @diml)
+
+- Improve error message when `dune subst` fails (#1898, fix #1897, @rgrinberg)
+
+- Add more GC counters to catapult traces (fix908, @rgrinberg)
+
+- Add a preprocessor shim for the `let+` syntax of OCaml 4.08 (#1899,
+  implements #1891, @diml)
+
+- Fix generation of `.merlin` files on Windows. `\` characters needed
+  to be escaped (#1869, @mlasson)
+
+- Fix 0 error code when `$ dune format-dune-file` fails. (#1915, fix #1914,
+  @rgrinberg)
+
+- Configurator: deprecated `query_expr` and introduced `query_expr_err` which is
+  the same but with a better error in case it fails. (#1886, @ejgallego)
+
+- Make sure `(menhir (mode promote) ...)` stanzas are ignored when
+  using `--ignore-promoted-rules` or `-p` (#1917, @diml)
+
+1.7.3 (27/02/2019)
+------------------
+
+- Fix interpretation of `META` files containing archives with `/` in
+  the filename. For instance, this was causing llvm to be unusable
+  with dune (#1889, fix #1885, @diml)
+
+- Make errors about menhir stanzas be located (#1881, fix #1876,
+  @diml)
+
+1.7.2 (21/02/2019)
+------------------
+
+- Add `${corrected-suffix}`, `${library-name}` and a few other
+  variables to the list of variables to upgrade. This fixes the
+  support for various framework producing corrections (#1840, #1853,
+  @diml)
+
+- Fix `$ dune subst` failing because the build directory wasn't set. (#1854, fix
+  #1846, @rgrinberg)
+
+- Configurator: Add warning to `Pkg_config.query` when a full package expression
+  is used. Add `Pkg_config.query_expr` for cases when the full power of
+  pkg-config's querying is needed (#1842, fix #1833, @rgrinberg)
+
+- Fix unavailable, optional implementations eagerly breaking the build (#1857,
+  fix #1856, @rgrinberg)
+
+1.7.1 (13/02/2019)
+------------------
+
+- Fix the watch mode (#1837, #1839, fix #1836, @diml)
+
+- Configurator: Fix misquoting when running pkg-config (#1835, fix #1833,
+  @Chris00)
+
+1.7.0 (12/02/2019)
+------------------
+
+
+- Second step of the deprecation of jbuilder: the `jbuilder` binary
+  now emits a warning on every startup and both `jbuilder` and `dune`
+  emit warnings when encountering `jbuild` files (#1752, @diml)
+
+- Change the layout of build artifacts inside _build. The new layout enables
+  optimizations that depend on the presence of `.cmx` files of private modules
+  (#1676, @bobot)
 
 - Fix merlin handling of private module visibility (#1653 @bobot)
 
+- unstable-fmt: use boxes to wrap some lists (#1608, fix #1153, @emillon,
+  thanks to @rgrinberg)
+
 - skip directories when looking up programs in the PATH (#1628, fixes
   #1616, @diml)
+
+- Use `lsof` on macOS to implement `--stats` (#1636, fixes #1634, @xclerc)
+
+- Generate `dune-package` files for every package. These files are installed and
+  read instead of `META` files whenever they are available (#1329, @rgrinberg)
 
 - Fix preprocessing for libraries with `(include_subdirs ..)` (#1624, fix #1626,
   @nojb, @rgrinberg)
@@ -17,15 +114,114 @@
   opened by Dune (#1635, #1643, fixes #1633, @jonludlam, @rgrinberg,
   @diml)
 
-- Do not generate targets for archive that don't match the `modes` field.
-  (#1632, fix #1617, @rgrinberg)
+- Reimplement the core of Dune using a new generic memoization system
+  (#1489, @rudihorn, @diml)
+
+- Replace the broken cycle detection algorithm by a state of the art
+  one from [this paper](https://doi.org/10.1145/2756553) (#1489,
+  @rudihorn)
 
 - Get the correct environment node for multi project workspaces (#1648,
   @rgrinberg)
 
+- Add `dune compute` to call internal memoized functions (#1528,
+  @rudihorn, @diml)
+
+- Add `--trace-file` option to trace dune internals (#1639, fix #1180, @emillon)
+
+- Add `--no-print-directory` (borrowed from GNU make) to suppress
+  `Entering directory` messages. (#1668, @dra27)
+
+- Remove `--stats` and track fd usage in `--trace-file` (#1667, @emillon)
+
+- Add virtual libraries feature and enable it by default (#1430 fixes #921,
+  @rgrinberg)
+
+- Fix handling of Control+C in watch mode (#1678, fixes #1671, @diml)
+
+- Look for jsoo runtime in the same dir as the `js_of_ocaml` binary
+  when the ocamlfind package is not available (#1467, @nojb)
+
+- Make the `seq` package available for OCaml >= 4.07 (#1714, @rgrinberg)
+
+- Add locations to error messages where a rule fails to generate targets and
+  rules that require files outside the build/source directory. (#1708, fixes
+  #848, @rgrinberg)
+
+- Let `Configurator` handle `sizeof` (in addition to negative numbers).
+  (#1726, fixes #1723, @Chris00)
+
 - Fix an issue causing menhir generated parsers to fail to build in
   some cases. The fix is to systematically use `-short-paths` when
   calling `ocamlc -i` (#1743, fix #1504, @diml)
+
+- Never raise when printing located errors. The code that would print the
+  location excerpts was prone to raising. (#1744, fix #1736, @rgrinberg)
+
+- Add a `dune upgrade` command for upgrading jbuilder projects to Dune
+  (#1749, @diml)
+
+- When automatically creating a `dune-project` file, insert the
+  detected name in it (#1749, @diml)
+
+- Add `(implicit_transitive_deps <bool>)` mode to dune projects. When this mode
+  is turned off, transitive dependencies are not accessible. Only listed
+  dependencies are directly accessible. (#1734, #430, @rgrinberg, @hnrgrgr)
+
+- Add `toplevel` stanza. This stanza is used to define toplevels with libraries
+  already preloaded. (#1713, @rgrinberg)
+
+- Generate `.merlin` files that account for normal preprocessors defined using a
+  subset of the `action` language. (#1768, @rgrinberg)
+
+- Emit `(orig_src_dir <path>)` metadata in `dune-package` for dune packages
+  built with `--store-orig-source-dir` command line flag (also controlled by
+  `DUNE_STORE_ORIG_SOURCE_DIR` env variable). This is later used to generate
+  `.merlin` with `S`-directives pointed to original source locations and thus
+  allowing merlin to see those. (#1750, @andreypopp)
+
+- Improve the behavior of `dune promote` when the files to be promoted have been
+  deleted. (#1775, fixes #1772, @diml)
+
+- unstable-fmt: preserve comments (#1766, @emillon)
+
+- Pass flags correctly when using `staged_pps` (#1779, fixes #1774, @diml)
+
+- Fix an issue with the use of `(mode promote)` in the menhir
+  stanza. It was previously causing intermediate *mock* files to be
+  promoted (#1783, fixes #1781, @diml)
+
+- unstable-fmt: ignore files using OCaml syntax (#1784, @emillon)
+
+- Configurator: Add `which` function to replace the `which` command line utility
+  in a cross platform way. (#1773, fixes #1705, @Chris00)
+
+- Make configurator append paths to `$PKG_CONFIG_PATH` on macOS. Previously it
+  was prepending paths and thus `$PKG_CONFIG_PATH` set by users could have been
+  overridden by homebrew installed libraries (#1785, @andreypopp)
+
+- Disallow c/cxx sources that share an object file in the same stubs archive.
+  This means that `foo.c` and `foo.cpp` can no longer exist in the same library.
+  (#1788, @rgrinberg)
+
+- Forbid use of `%{targets}` (or `${@}` in jbuild files) inside
+  preprocessing actions
+  (#1812, fixes #1811, @diml)
+
+- Add `DUNE_PROFILE` environment variable to easily set the profile. (#1806,
+  @rgrinberg)
+
+- Deprecate the undocumented `(no_keep_locs)` field. It was only
+  necessary until virtual libraries were supported (#1822, fix #1816,
+  @diml)
+
+- Rename `unstable-fmt` to `format-dune-file` and remove its `--inplace` option.
+  (#1821, @emillon).
+
+- Autoformatting: `(using fmt 1.1)` will also format dune files (#1821, @emillon).
+
+- Autoformatting: record dependencies on `.ocamlformat-ignore` files (#1824,
+  fixes #1793, @emillon)
 
 1.6.2 (05/12/2018)
 ------------------

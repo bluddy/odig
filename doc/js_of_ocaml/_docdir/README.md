@@ -19,7 +19,6 @@ like browsers and Node.js.
   See [opam](https://github.com/ocsigen/js_of_ocaml/blob/master/js_of_ocaml-compiler.opam) file for version constraints.
 
 ### optional
-  * [camlp4](https://github.com/ocaml/camlp4)
   * [lwt](https://github.com/ocsigen/lwt)
   * [deriving](https://github.com/ocsigen/deriving)
   * [ppx_deriving](https://github.com/whitequark/ppx_deriving)
@@ -98,12 +97,12 @@ functions can yield results different from usual:
   * these functions may be more prone to stack overflow.
 
 ## Toplevel
-  * [Ocaml 4.02.3](http://ocsigen.github.io/js_of_ocaml/#version=4.02.3)
-  * [Ocaml 4.03.0](http://ocsigen.github.io/js_of_ocaml/#version=4.03.0)
-  * [Ocaml 4.04.2](http://ocsigen.github.io/js_of_ocaml/#version=4.04.2) includes Base, Core_kernel, Async_kernel, Async_js
-  * [Ocaml 4.04.0+BER](http://ocsigen.github.io/js_of_ocaml/#version=4.04.0+BER) see http://okmij.org/ftp/ML/MetaOCaml.html
-  * [Ocaml 4.05.0](http://ocsigen.github.io/js_of_ocaml/#version=4.05.0) includes Base, Core_kernel, Async_kernel, Async_js
-  * [Ocaml 4.06.0](http://ocsigen.github.io/js_of_ocaml/#version=4.06.0) includes Base, Core_kernel, Async_kernel, Async_js
+  * [Ocaml 4.02.3](http://ocsigen.github.io/js_of_ocaml/toplevel.html#version=4.02.3)
+  * [Ocaml 4.03.0](http://ocsigen.github.io/js_of_ocaml/toplevel.html#version=4.03.0)
+  * [Ocaml 4.04.2](http://ocsigen.github.io/js_of_ocaml/toplevel.html#version=4.04.2) includes Base, Core_kernel, Async_kernel, Async_js
+  * [Ocaml 4.04.0+BER](http://ocsigen.github.io/js_of_ocaml/toplevel.html#version=4.04.0+BER) see http://okmij.org/ftp/ML/MetaOCaml.html
+  * [Ocaml 4.05.0](http://ocsigen.github.io/js_of_ocaml/toplevel.html#version=4.05.0) includes Base, Core_kernel, Async_kernel, Async_js
+  * [Ocaml 4.06.0](http://ocsigen.github.io/js_of_ocaml/toplevel.html#version=4.06.0) includes Base, Core_kernel, Async_kernel, Async_js
 
 ## Contents of the distribution
 | Filename    | Description                                  |
@@ -114,7 +113,6 @@ functions can yield results different from usual:
 | examples/   | small examples                               |
 | lib/        | library for interfacing with JavaScript APIs |
 | ppx/        | ppx syntax extensions                        |
-| camlp4/     | camlp4 syntax extensions                     |
 | runtime/    | runtime system                               |
 | toplevel/   | web-based OCaml toplevel                     |
 | ocamlbuild/ | ocamlbuild plugin for js_of_ocaml            |

@@ -1,6 +1,6 @@
 Uuseg — Unicode text segmentation for OCaml
 -------------------------------------------------------------------------------
-v11.0.0
+v12.0.0
 
 Uuseg is an OCaml library for segmenting Unicode text. It implements
 the locale independent [Unicode text segmentation algorithms][1] to

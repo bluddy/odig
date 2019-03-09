@@ -1,3 +1,42 @@
+v6.1.0 2019-02-06 Cambridge
+---------------------------
+
+- Add support for Fedora 29 and OpenSUSE Leap 15.0 and Alpine 3.9.
+- Demote some releases to Tier 2 from Tier 1.
+- Add functions to calculate base distro tags in `Dockerfile_distro`.
+- Install bzip2 and rsync on OpenSUSE distros.
+- Add a `Dockerfile_opam.deprecated` container for being able to turn off older distros. 
+- Install `which` into OpenSUSE containers by default.
+- Use `+trunk` suffix for dev versions of compiler.
+- Remove unused GNU Parallel wrapper in `dockerfile_cmd`.
+
+v6.0.0 2018-11-15 Cambridge
+---------------------------
+
+This release focuses on the opam 2.0 release and the resulting
+containers built on ocaml/opam2 on the Docker Hub.
+
+- set the `OPAMYES` variable to true by default in ocaml
+  containers so they remain non-interactive.
+- install rsync in RPM distros
+- Install opam-depext in the containers by default
+- fix opam2 alpine and centos installation by installing openssl
+- add a dependency on `ppx_sexp_conv` for dockerfile-cmd
+- add support for Aarch32 in distros
+- install coreutils in Alpine since OCaml 4.08 needs GNU stat to compile
+- add support for Ubuntu 18.10 and Alpine 3.8 releases.
+- add xz to Alpine and Zypper distributions.
+- `install_opam_from_source` requires an explicit branch rather
+  than defaulting to master.
+- update version of Bubblewrap in containers to 0.3.1.
+- port build system from Jbuilder to Dune.
+
+v5.1.0 2018-06-15 Cambridge
+---------------------------
+
+- Remove unnecessary cmdliner dep in dockerfile-opam
+- Support Tier2 distros in bulk builds
+
 v5.0.0 2018-06-07 Cambridge
 ---------------------------
 
