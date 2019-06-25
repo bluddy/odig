@@ -19,12 +19,23 @@ module Digest = struct
 end
 
 module Pkg = struct
-  type name = string
-  type t = name * Fpath.t
-  let name = fst
-  let path = snd
-  let pp ppf (n, p) = Fmt.pf ppf "%s %a" n (Fmt.tty [`Faint] Fpath.pp) p
-  let pp_name ppf (n, p) = Fmt.string ppf n
+  type t = {
+    name : string;
+    version : string option;
+    path : Fpath.t;
+  }
+  let name x = x.name
+  let version x = x.version
+  let path x = x.path
+  let v ?version name path = {name; version; path}
+
+  let out_dirname x = match x.version with
+    | Some v -> x.name ^ "_" ^ v
+    | _ -> x.name
+
+  let pp ppf x = Fmt.pf ppf "%s %a" (name x)
+    (Fmt.tty [`Faint] Fpath.pp) (path x)
+  let pp_name ppf x = Fmt.string ppf (name x)
   let pp_version ppf v =
     let v = if v = "" then "?" else v in
     Fmt.pf ppf "%a" (Fmt.tty_string [`Fg `Green]) v
@@ -44,11 +55,11 @@ module Pkg = struct
     let ocaml_pkg () =
       let ocaml_where = Cmd.(arg "ocamlc" % "-where") in
       let p = Os.Cmd.run_out ocaml_where |> Result.to_failure in
-      "ocaml", Fpath.of_string p |> Result.to_failure
+      v "ocaml" (Fpath.of_string p |> Result.to_failure)
     in
     try
       let add_pkg _ name dir acc =
-        if name <> "ocaml" then (name, dir) :: acc else acc
+        if name <> "ocaml" then (v name dir) :: acc else acc
       in
       let pkgs = Os.Dir.fold_dirs ~recurse:false add_pkg dir [] in
       let pkgs = pkgs |> Result.to_failure in
@@ -56,7 +67,7 @@ module Pkg = struct
     with Failure e -> Log.err (fun m -> m "package list: %s" e); []
 
   let by_names ?(init = String.Map.empty) pkgs =
-    let add_pkg acc (n, _ as pkg) = String.Map.add n pkg acc in
+    let add_pkg acc pkg = String.Map.add (name pkg) pkg acc in
     List.fold_left add_pkg init pkgs
 end
 

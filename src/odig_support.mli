@@ -35,17 +35,23 @@ module Pkg : sig
 
   (** {1:pkgs Packages} *)
 
-  type name = string
-  (** The type for package names. *)
-
   type t
   (** The type for packages. *)
 
-  val name : t -> name
+  val name : t -> string
   (** [name] is the name of the package. *)
+
+  val version : t -> string option
+  (** [version] is the version of the package, if known *)
 
   val path : t -> Fpath.t
   (** [path] is the path to the compilation objects of the package. *)
+
+  val v : ?version:string -> string -> Fpath.t -> t
+  (** [v] creates a value of [t] *)
+
+  val out_dirname : t -> string
+  (** [out_dirname] outputs the name suffixed with a version if available *)
 
   val equal : t -> t -> bool
   (** [equal p0 p1] is [true] if [p0] and [p1] point to the same package. *)

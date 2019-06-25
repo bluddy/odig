@@ -95,8 +95,8 @@ let builder m conf ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
   { m; conf; odocdir; htmldir; index_title; index_intro; pkg_deps; tag_index;
     cobjs_by_modname; cobjs_by_digest; cobj_deps; pkgs_todo; pkgs_seen }
 
-let pkg_htmldir b pkg = Fpath.(b.htmldir / Pkg.name pkg)
-let pkg_odocdir b pkg = Fpath.(b.odocdir / Pkg.name pkg)
+let pkg_htmldir b pkg = Fpath.(b.htmldir / Pkg.out_dirname pkg)
+let pkg_odocdir b pkg = Fpath.(b.odocdir / Pkg.out_dirname pkg)
 
 let require_pkg b pkg =
   if Pkg.Set.mem pkg b.pkgs_seen || Pkg.Set.mem pkg b.pkgs_todo then () else
@@ -217,7 +217,7 @@ let cobj_to_odoc b cobj =
     cobj_deps b cobj @@ fun deps ->
     cobj_deps_to_odoc_deps b deps @@ fun odoc_deps ->
     B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
-    let pkg = Pkg.name (Doc_cobj.pkg cobj) in
+    let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
     let hidden = Doc_cobj.hidden cobj in
     let cobj = Doc_cobj.path cobj in
     B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
@@ -230,7 +230,7 @@ let mld_to_odoc b pkg pkg_odocs mld =
   begin
     B0_odoc.Compile.Writes.write b.m mld ~to_odoc:odoc ~o:writes;
     B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
-    let pkg = Pkg.name pkg in
+    let pkg = Pkg.out_dirname pkg in
     let odoc_deps = pkg_odocs
       (* XXX odoc compile-deps does not work on .mld files, so we
          simply depend on all of the package's odoc files. This is
@@ -326,7 +326,8 @@ let pkg_to_html b pkg =
       let mld_odocs = mlds_to_odoc b pkg pkg_info odocs mlds in
       let odoc_files = List.rev_append odocs mld_odocs in
       let pkg_odoc_dir = pkg_odocdir b pkg in
-      let deps_file = Fpath.(pkg_odoc_dir / Pkg.name pkg + ".html.deps") in
+      let deps_file = Fpath.(pkg_odoc_dir / Pkg.out_dirname pkg + ".html.deps") in
+      (* Write all dependencies, then read them back *)
       B0_odoc.Html.Dep.write b.m ~odoc_files pkg_odoc_dir ~o:deps_file;
       B0_odoc.Html.Dep.read b.m deps_file begin fun deps ->
         html_deps_resolve b deps @@ fun odoc_deps ->
@@ -373,7 +374,7 @@ let index_intro_to_html b k = match b.index_intro with
 let write_pkgs_index b ~ocaml_manual_uri =
   let index = Fpath.(b.htmldir / "index.html") in
   let index_title = b.index_title in
-  let pkg_index p = Fpath.(b.htmldir / Pkg.name p / "index.html") in
+  let pkg_index p = Fpath.(b.htmldir / Pkg.out_dirname p / "index.html") in
   let reads = Pkg.Set.fold (fun p acc -> pkg_index p :: acc) b.pkgs_seen [] in
   let reads = match b.index_intro with None -> reads | Some f -> f :: reads in
   index_intro_to_html b @@ fun raw_index_intro ->
