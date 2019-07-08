@@ -85,9 +85,12 @@ module Pkg : sig
       simply all the directory names inside [libdir] and an [ocaml]
       package which points to [ocamlc -where]. *)
 
-  val by_names : ?init:t String.Map.t -> t list -> t String.Map.t
+  val by_names : ?init:t String.Map.t -> ?use_dirname:bool -> t list -> t String.Map.t
   (** [by_names pkgs] indexes [pkgs] by module name and adds them to
-      [init] (defaults to {!String.Map.empty}. *)
+      [init] (defaults to {!String.Map.empty}.
+      [use_dirname] chooses whether to use the package name or directory name,
+        (defaults to false).
+      *)
 end
 
 (** Lookup package API documention compilation objects.
