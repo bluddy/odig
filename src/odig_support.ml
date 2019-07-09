@@ -66,8 +66,6 @@ module Pkg = struct
       List.sort compare_by_caseless_name (ocaml_pkg () :: pkgs)
     with Failure e -> Log.err (fun m -> m "package list: %s" e); []
 
-  let by_names ?(init = String.Map.empty) pkgs =
-    let add_pkg acc pkg = String.Map.add (name pkg) pkg acc in
   let by_names ?(init = String.Map.empty) ?(use_dirname=false) pkgs =
     let get_name = if use_dirname then out_dirname else name in
     let add_pkg acc pkg = String.Map.add (get_name pkg) pkg acc in
