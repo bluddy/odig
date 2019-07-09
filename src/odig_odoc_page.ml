@@ -136,32 +136,50 @@ let index_mld conf pkg pkg_info ~user_index ~with_tag_links =
 
 (* Package list *)
 
-let pkg_li conf ~pid pkg =
-    let info = try Pkg.Map.find pkg (Conf.pkg_infos conf) with
+(* Handle one package name, possibly many versions *)
+let pkg_li conf ~pid (_, pkgs) =
+  let get_info pkg =
+    try Pkg.Map.find pkg (Conf.pkg_infos conf) with
     | Not_found -> assert false (* formally, could be racy *)
-    in
+  in
+  match pkgs with
+  | []   -> assert false
+  | pkg::_ ->
+    let main_info = get_info pkg in
     let name = Pkg.name pkg in
-    let fullname = Pkg.out_dirname pkg in
-    let version = String.concat " " (Pkg_info.get `Version info) in
-    let synopsis = String.concat " " (Pkg_info.get `Synopsis info) in
-    let index = Fmt.str "%s/index.html" fullname in
+    let main_index =
+      let dirname = Pkg.out_dirname pkg in (* TODO: change to regular name *)
+      Fmt.str "%s/index.html" dirname in
+    let synopsis = String.concat " " (Pkg_info.get `Synopsis main_info) in
+    (* Get a link for a particular version *)
+    let version_link pkg =
+      let dirname = Pkg.out_dirname pkg in
+      let info = get_info pkg in
+      let version = String.concat " " (Pkg_info.get `Version info) in
+      let index = Fmt.str "%s/index.html" dirname in
+      El.[a ~a:Att.[href index] [txt version]; txt " "]
+    in
     let pid = pid name in
-    El.li ~a:Att.[id pid] El.[
+    El.li ~a:Att.[id pid] El.([
         anchor_a pid;
-        a ~a:Att.[href index] [txt name]; txt " ";
-        span ~a:Att.[class' "version"] [txt version]; txt " ";
-        span ~a:Att.[class' "synopsis"] [txt synopsis]; ]
+        (* TODO: change main index to point to pkg latest alias *)
+        a ~a:Att.[href main_index] [txt name]; txt " "] @
+        (List.map version_link pkgs |> List.flatten) @
+        [span ~a:Att.[class' "synopsis"] [txt synopsis]; ])
 
 let pkg_list conf pkgs =
   let letter_id l = Fmt.str "name-%s" l in
   let letter_link (l, _) = El.(a ~a:Att.[anchor_href (letter_id l)] [txt l]) in
+  (* Handle packages grouped by letters *)
   let letter_section (l, pkgs) =
-    let pkgs = List.sort Pkg.compare_by_caseless_name pkgs in
+    (* Classify into groups based on regular package name (multiple versions) *)
+    let classes p = [Pkg.name p] in
+    let pkg_groups = List.classify ~cmp_elts:Pkg.compare ~classes pkgs in
     let letter_id = letter_id l in
     let pid = Fmt.str "package-%s" in
     El.splice @@
     El.[h3 ~a:Att.[id letter_id] [anchor_a letter_id; txt l];
-        ol ~a:Att.[class' "packages"] (List.map (pkg_li conf ~pid) pkgs)]
+        ol ~a:Att.[class' "packages"] (List.map (pkg_li conf ~pid) pkg_groups)]
   in
   let by_name = "by-name" in
   let classes p = [String.of_char (Char.Ascii.lowercase (Pkg.name p).[0])] in
@@ -187,12 +205,13 @@ let tag_list conf pkgs =
     El.table (List.map tags_by_letter tag_classes)
   in
   let tag_section (t, pkgs) =
-    let pkgs = List.sort Pkg.compare_by_caseless_name pkgs in
+    let classes p = [Pkg.name p] in
+    let pkg_groups = List.classify ~cmp_elts:Pkg.compare ~classes pkgs in
     let tag_id = tag_id t in
     let pid = Fmt.str "tag-%s-package-%s" t in
     El.splice @@
     El.[h3 ~a:Att.[id tag_id] [anchor_a tag_id; span [txt t]];
-        ol ~a:Att.[class' "packages"] (List.map (pkg_li conf ~pid) pkgs)]
+        ol ~a:Att.[class' "packages"] (List.map (pkg_li conf ~pid) pkg_groups)]
   in
   let by_tag = "by-tag" in
   let pkg_infos = Conf.pkg_infos conf in
