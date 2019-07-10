@@ -354,16 +354,24 @@ let conf =
     let env = Arg.env_var "ODIG_JOBS" in
     B0_ui.Memo.jobs ~docs ~env ()
   in
-  let conf cachedir libdir docdir sharedir odoc_theme max_spawn =
+  let esy_support =
+    let doc = "Run odig on an $(b,esy) environment and interpret directories \
+               for version information using esy's conventions. \
+               Make sure to point the --libdir to the correct location."
+    in
+    let env = Arg.env_var "ODIG_ESY_SUPPORT" in
+    Arg.(value & flag & info ["esy-support"] ~doc ~env)
+  in
+  let conf cachedir libdir docdir sharedir odoc_theme esy_support max_spawn =
     match
-      Conf.v ?libdir ?cachedir ?docdir ?sharedir ?odoc_theme ~max_spawn ()
+      Conf.v ?libdir ?cachedir ?docdir ?sharedir ?odoc_theme ~esy_support ~max_spawn ()
     with
     | Ok v -> `Ok v
     | Error e -> `Error (false, e)
   in
   Term.(ret @@
         (const conf $ cachedir $ libdir $ docdir $ sharedir $ odoc_theme $
-         max_spawn))
+         esy_support $ max_spawn))
 
 let pkgs_pos1_nonempty, pkgs_pos, pkgs_pos1, pkgs_opt =
   let doc = "Package to consider (repeatable)." in

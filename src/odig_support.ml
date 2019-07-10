@@ -545,10 +545,12 @@ module Conf = struct
       htmldir : Fpath.t;
       odoc_theme : string;
       memo : (Memo.t, string) result Lazy.t;
+      esy_support : bool;
       pkgs : Pkg.t list Lazy.t;
       pkg_infos : Pkg_info.t Pkg.Map.t Lazy.t; }
 
-  let v ?cachedir ?libdir ?docdir ?sharedir ?odoc_theme ~max_spawn () =
+  let v ?cachedir ?libdir ?docdir ?sharedir ?odoc_theme
+        ~esy_support ~max_spawn () =
     try
       let cachedir = get_cachedir cachedir in
       let libdir = get_libdir libdir in
@@ -563,8 +565,8 @@ module Conf = struct
         let pkg_infos = Pkg_info.query docdir (Lazy.force pkgs) in
         List.fold_left add Pkg.Map.empty pkg_infos
       in
-      Ok { cachedir; libdir; docdir; sharedir; htmldir; odoc_theme; memo; pkgs;
-           pkg_infos }
+      Ok { cachedir; libdir; docdir; sharedir; htmldir; odoc_theme; memo;
+           esy_support; pkgs; pkg_infos }
     with
     | Failure e -> Fmt.error "conf: %s" e
 

@@ -348,9 +348,9 @@ module Conf : sig
 
   val v :
     ?cachedir:Fpath.t -> ?libdir:Fpath.t -> ?docdir:Fpath.t ->
-    ?sharedir:Fpath.t -> ?odoc_theme:Odoc_theme.name -> max_spawn:int option ->
-    unit -> (t, string) result
-  (** [v ~cachedir ~libdir ~docdir ~sharedir ~odoc_theme ~max_spawn ()] is a
+    ?sharedir:Fpath.t -> ?odoc_theme:Odoc_theme.name -> esy_support:bool ->
+    max_spawn:int option -> unit -> (t, string) result
+  (** [v ~cachedir ~libdir ~docdir ~sharedir ~odoc_theme ~esy_support ~max_spawn ()] is a
       configuration with given attributes. If unspecified they are
       discovered. *)
 
