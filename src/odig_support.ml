@@ -21,7 +21,7 @@ end
 module Pkg = struct
   type t = {
     name : string;
-    version : string option;
+    version : (string * string) option; (* version * subversion *)
     path : Fpath.t;
   }
   let name x = x.name
@@ -29,8 +29,9 @@ module Pkg = struct
   let path x = x.path
   let v ?version name path = {name; version; path}
 
-  let out_dirname x = match x.version with
-    | Some v -> x.name ^ "_" ^ v
+  let out_dirname ?(subver=false) x = match x.version with
+    | Some (v, s) when subver -> Fmt.str "%s.%s-%s" x.name v s
+    | Some (v, _) -> Fmt.str "%s.%s" x.name v
     | _ -> x.name
 
   let pp ppf x = Fmt.pf ppf "%s %a" (name x)
@@ -50,7 +51,10 @@ module Pkg = struct
   module Set = Set.Make (T)
   module Map = Map.Make (T)
 
-  let of_dir dir =
+  (* Capture the version from the directory string *)
+  let esy_regex = Str.regexp {|__c__\([^-]+\)-\([^-]+\)$|}
+
+  let of_dir ~esy_support dir =
     Log.time (fun _ m -> m "package list of %a" Fpath.pp dir) @@ fun () ->
     let ocaml_pkg () =
       let ocaml_where = Cmd.(arg "ocamlc" % "-where") in
@@ -59,7 +63,17 @@ module Pkg = struct
     in
     try
       let add_pkg _ name dir acc =
-        if name <> "ocaml" then (v name dir) :: acc else acc
+        if esy_support then begin
+          let s_dir = Fpath.to_string dir in
+          if name = "ocaml" || String.sub s_dir 0 4 <> "opam" then acc
+          else
+            (* Extract version, subversion from esy directory name *)
+            let _ = Str.search_forward esy_regex s_dir in
+            let version = Str.matched_group 1 s_dir in
+            let subversion = Str.matched_group 2 s_dir in
+            (v ~version:(version, subversion) name dir) :: acc
+        end else
+          if name = "ocaml" then acc else (v name dir) :: acc
       in
       let pkgs = Os.Dir.fold_dirs ~recurse:false add_pkg dir [] in
       let pkgs = pkgs |> Result.to_failure in
@@ -67,7 +81,7 @@ module Pkg = struct
     with Failure e -> Log.err (fun m -> m "package list: %s" e); []
 
   let by_names ?(init = String.Map.empty) ?(use_dirname=false) pkgs =
-    let get_name = if use_dirname then out_dirname else name in
+    let get_name = if use_dirname then out_dirname ~subver:false else name in
     let add_pkg acc pkg = String.Map.add (get_name pkg) pkg acc in
     List.fold_left add_pkg init pkgs
 end
@@ -559,7 +573,7 @@ module Conf = struct
       let htmldir = Fpath.(cachedir / "html") in
       let odoc_theme = get_odoc_theme odoc_theme in
       let memo = memo cachedir ~max_spawn in
-      let pkgs = lazy (Pkg.of_dir libdir) in
+      let pkgs = lazy (Pkg.of_dir ~esy_support libdir) in
       let pkg_infos = Lazy.from_fun @@ fun () ->
         let add acc (p, i) = Pkg.Map.add p i acc in
         let pkg_infos = Pkg_info.query docdir (Lazy.force pkgs) in

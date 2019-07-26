@@ -2,9 +2,9 @@ true : bin_annot, safe_string
 true : package(b0.std), package(b0.b00), package(b0.care)
 
 <src> : include
-<src/odig_bin.*> : package(cmdliner unix)
+<src/odig_bin.*> : package(cmdliner unix str)
 <src/odig_odoc.*> : package(unix)
-<src/odig_support.*> : package(unix)
+<src/odig_support.*> : package(unix str)
 <sample> : include
 <test> : include
 <sample/_opam> : -traverse

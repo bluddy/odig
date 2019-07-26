@@ -41,16 +41,16 @@ module Pkg : sig
   val name : t -> string
   (** [name] is the name of the package. *)
 
-  val version : t -> string option
+  val version : t -> (string * string) option
   (** [version] is the version of the package, if known *)
 
   val path : t -> Fpath.t
   (** [path] is the path to the compilation objects of the package. *)
 
-  val v : ?version:string -> string -> Fpath.t -> t
+  val v : ?version:(string * string) -> string -> Fpath.t -> t
   (** [v] creates a value of [t] *)
 
-  val out_dirname : t -> string
+  val out_dirname : ?subver:bool -> t -> string
   (** [out_dirname] outputs the name suffixed with a version if available *)
 
   val equal : t -> t -> bool
@@ -80,7 +80,7 @@ module Pkg : sig
 
   (** {1:query Queries} *)
 
-  val of_dir : Fpath.t -> t list
+  val of_dir : esy_support:bool -> Fpath.t -> t list
   (** [of_dir libdir] are the packages found in [libdir]. This is
       simply all the directory names inside [libdir] and an [ocaml]
       package which points to [ocamlc -where]. *)
