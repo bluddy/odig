@@ -68,10 +68,11 @@ module Pkg = struct
           if name = "ocaml" || String.sub s_dir 0 4 <> "opam" then acc
           else
             (* Extract version, subversion from esy directory name *)
-            let _ = Str.search_forward esy_regex s_dir in
+            let _ = Str.search_forward esy_regex s_dir 0 in
             let version = Str.matched_group 1 s_dir in
             let subversion = Str.matched_group 2 s_dir in
-            (v ~version:(version, subversion) name dir) :: acc
+            let final_dir = Fpath.(dir / "_build" / "install" / "default" / "lib") in
+            (v ~version:(version, subversion) name final_dir) :: acc
         end else
           if name = "ocaml" then acc else (v name dir) :: acc
       in
@@ -275,22 +276,28 @@ module Opam = struct
     | Ok opam ->
         if opams = [] then no_data qpkgs else
         let show = Cmd.(path opam % "show" % "--normalise" % "--no-lint") in
-        let show = Cmd.(show % field_arg %% paths opams) in
-        match
-          Log.time (fun _ m -> m "opam show") @@ fun () ->
-          let stderr = `Stdo (Os.Cmd.out_null) in
-          Os.Cmd.run_out ~stderr show
-        with
-        | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
-        | Ok out ->
-            let lines = String.cuts_left ~sep:"\n" out in
-            let infos = parse_lines String.Map.empty lines in
-            let find_info is p = match String.Map.find (Pkg.name p) is with
-            | exception Not_found -> p, []
-            | i -> p, i
-            in
-            try List.map (find_info infos) qpkgs with
-            | Not_found -> assert false
+        (* TODO: OPAM can't handle multiple packages of the same lib
+         * with different versions.
+         * For now, we'll invoke the command once per package *)
+        let show pkg = Cmd.(show % field_arg %% path pkg) in
+        let opam_string pkg =
+          match
+            Log.time (fun _ m -> m "opam show") @@ fun () ->
+            let stderr = `Stdo (Os.Cmd.out_null) in
+            Os.Cmd.run_out ~stderr (show pkg)
+          with
+          | Error e -> Log.err (fun m -> m "%s" e); ""
+          | Ok out -> out
+        in
+        let str = List.map opam_string opams |> String.concat "\n" in
+        let lines = String.cuts_left ~sep:"\n" str in
+        let infos = parse_lines String.Map.empty lines in
+        let find_info is p = match String.Map.find (Pkg.name p) is with
+          | exception Not_found -> p, []
+          | i -> p, i
+        in
+        try List.map (find_info infos) qpkgs with
+        | Not_found -> assert false
 end
 
 module Docdir = struct
