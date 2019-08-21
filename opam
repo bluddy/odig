@@ -7,6 +7,7 @@ license: ["ISC" "PT-Sans-fonts" "DejaVu-fonts" ]
 dev-repo: "git+https://erratique.ch/repos/odig.git"
 bug-reports: "https://github.com/b0-system/odig/issues"
 tags: [ "org:erratique" "org:b0-system" "build" "dev" "meta" "doc" "packaging" ]
+synopsis: "Odig is a documentaiton tool"
 depends: [
   "ocaml" {>= "4.03"}
   "ocamlfind" {build}
