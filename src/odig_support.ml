@@ -64,20 +64,22 @@ module Pkg = struct
     try
       let add_pkg _ name dir acc =
         if esy_support then begin
-          let prefix = String.sub name 0 4 in
-          if prefix = "ocaml" || prefix <> "opam" then acc
-          else
-            (* Extract version, subversion from esy directory name *)
-            let _ = Str.search_forward esy_regex name 0 in
-            let name_s = Str.matched_group 1 name in
-            (* Remove double underscores from names *)
-            let name_s = String.split_on_char '_' name_s |>
-              List.filter (fun s -> s <> "") |>
-              String.concat "_" in
-            let version = Str.matched_group 2 name in
-            let subversion = Str.matched_group 3 name in
-            let final_dir = Fpath.(dir / "_build" / "install" / "default" / "lib" / name_s) in
-            (v ~version:(version, subversion) name_s final_dir) :: acc
+          try
+            let prefix = String.sub name 0 4 in
+            if prefix = "ocaml" || prefix <> "opam" then acc
+            else
+              (* Extract version, subversion from esy directory name *)
+              let _ = Str.search_forward esy_regex name 0 in
+              let name_s = Str.matched_group 1 name in
+              (* Remove double underscores from names *)
+              let name_s = String.split_on_char '_' name_s |>
+                List.filter (fun s -> s <> "") |>
+                String.concat "_" in
+              let version = Str.matched_group 2 name in
+              let subversion = Str.matched_group 3 name in
+              let final_dir = Fpath.(dir / "_build" / "install" / "default" / "lib" / name_s) in
+              (v ~version:(version, subversion) name_s final_dir) :: acc
+          with Not_found -> acc
         end else
           if name = "ocaml" then acc else (v name dir) :: acc
       in
