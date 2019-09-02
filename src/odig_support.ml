@@ -77,8 +77,14 @@ module Pkg = struct
                 String.concat "_" in
               let version = Str.matched_group 2 name in
               let subversion = Str.matched_group 3 name in
-              let final_dir = Fpath.(dir / "_build" / "install" / "default" / "lib" / name_s) in
-              (v ~version:(version, subversion) name_s final_dir) :: acc
+              (* There are 2 options for where the opam file (and installation) is *)
+              let install_dir2 = Fpath.(dir / "_build") in
+              let install_dir1 = Fpath.(install_dir2 / "install" / "default" / "lib" / name_s) in
+              if Os.File.exists Fpath.(install_dir1 / "opam") |> Result.is_ok then
+                (v ~version:(version, subversion) name_s install_dir1) :: acc
+              else if Os.File.exists Fpath.(install_dir2 / "opam") |> Result.is_ok then
+                (v ~version:(version, subversion) name_s install_dir2) :: acc
+              else acc
           with Not_found -> acc
         end else
           if name = "ocaml" then acc else (v name dir) :: acc
