@@ -80,11 +80,15 @@ module Pkg = struct
               (* There are 2 options for where the opam file (and installation) is *)
               let install_dir2 = Fpath.(dir / "_build") in
               let install_dir1 = Fpath.(install_dir2 / "install" / "default" / "lib" / name_s) in
-              if Os.File.exists Fpath.(install_dir1 / "opam") |> Result.is_ok then
+              if Os.File.exists Fpath.(install_dir1 / "opam") = (Ok true) then begin
                 (v ~version:(version, subversion) name_s install_dir1) :: acc
-              else if Os.File.exists Fpath.(install_dir2 / "opam") |> Result.is_ok then
+              end
+              else if Os.File.exists Fpath.(install_dir2 / "opam") = (Ok true) then begin
                 (v ~version:(version, subversion) name_s install_dir2) :: acc
-              else acc
+              end else begin
+                (* print_endline @@ "Using nothing for "^name_s; *)
+                acc
+              end
           with Not_found -> acc
         end else
           if name = "ocaml" then acc else (v name dir) :: acc
