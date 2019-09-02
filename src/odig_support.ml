@@ -77,15 +77,25 @@ module Pkg = struct
                 String.concat "_" in
               let version = Str.matched_group 2 name in
               let subversion = Str.matched_group 3 name in
+              let name_opam = name_s ^ ".opam" in
+              let loop dir =
+                (v ~version:(version, subversion) name_s dir) :: acc
+              in
               (* There are 2 options for where the opam file (and installation) is *)
               let install_dir2 = Fpath.(dir / "_build") in
-              let install_dir1 = Fpath.(install_dir2 / "install" / "default" / "lib" / name_s) in
-              if Os.File.exists Fpath.(install_dir1 / "opam") = (Ok true) then begin
-                (v ~version:(version, subversion) name_s install_dir1) :: acc
-              end
-              else if Os.File.exists Fpath.(install_dir2 / "opam") = (Ok true) then begin
-                (v ~version:(version, subversion) name_s install_dir2) :: acc
-              end else begin
+              let install_dir1 =
+                Fpath.(install_dir2 / "install" / "default" / "lib" / name_s) in
+              if Os.File.exists Fpath.(install_dir1 / "opam") = (Ok true) ||
+                 Os.File.exists Fpath.(install_dir1 / name_opam) = (Ok true) then
+                loop install_dir1
+              else
+                if Os.File.exists Fpath.(install_dir2 / "opam") = (Ok true) ||
+                   Os.File.exists Fpath.(install_dir2 / name_opam) = (Ok true) then
+                loop install_dir2
+              else if Os.File.exists Fpath.(dir / "opam") = (Ok true) ||
+                      Os.File.exists Fpath.(dir / name_opam) = (Ok true) then
+                loop dir
+              else begin
                 (* print_endline @@ "Using nothing for "^name_s; *)
                 acc
               end
