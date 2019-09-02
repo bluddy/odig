@@ -92,9 +92,11 @@ module Pkg = struct
                 if Os.File.exists Fpath.(install_dir2 / "opam") = (Ok true) ||
                    Os.File.exists Fpath.(install_dir2 / name_opam) = (Ok true) then
                 loop install_dir2
+              (*
               else if Os.File.exists Fpath.(dir / "opam") = (Ok true) ||
                       Os.File.exists Fpath.(dir / name_opam) = (Ok true) then
                 loop dir
+                *)
               else begin
                 (* print_endline @@ "Using nothing for "^name_s; *)
                 acc
