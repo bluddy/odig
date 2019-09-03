@@ -80,7 +80,7 @@ module Pkg : sig
 
   (** {1:query Queries} *)
 
-  val of_dir : esy_support:bool -> Fpath.t -> t list
+  val of_dir : esy_mode:bool -> Fpath.t -> t list
   (** [of_dir libdir] are the packages found in [libdir]. This is
       simply all the directory names inside [libdir] and an [ocaml]
       package which points to [ocamlc -where]. *)
@@ -194,7 +194,7 @@ module Opam : sig
   val file : Pkg.t -> Fpath.t option
   (** [file pkg] is the opam file of package [pkg] (if any). *)
 
-  val query : Pkg.t list -> (Pkg.t * t) list
+  val query : Pkg.t list -> esy_mode:bool -> (Pkg.t * t) list
   (** [query pkgs] queries the opam files associated to
       the given packages (if any).
 
@@ -280,7 +280,7 @@ module Pkg_info : sig
 
   (** {1:query Queries} *)
 
-  val query : docdir:Fpath.t -> Pkg.t list -> (Pkg.t * t) list
+  val query : docdir:Fpath.t -> esy_mode:bool -> Pkg.t list -> (Pkg.t * t) list
   (** [query ~docdir pkgs] combines the result of
       {!Doc_cobj.of_pkg}, {!Opam.query} and {!Docdir.of_pkg}. *)
 end
@@ -348,9 +348,9 @@ module Conf : sig
 
   val v :
     ?cachedir:Fpath.t -> ?libdir:Fpath.t -> ?docdir:Fpath.t ->
-    ?sharedir:Fpath.t -> ?odoc_theme:Odoc_theme.name -> esy_support:bool ->
+    ?sharedir:Fpath.t -> ?odoc_theme:Odoc_theme.name -> esy_mode:bool ->
     max_spawn:int option -> unit -> (t, string) result
-  (** [v ~cachedir ~libdir ~docdir ~sharedir ~odoc_theme ~esy_support ~max_spawn ()] is a
+  (** [v ~cachedir ~libdir ~docdir ~sharedir ~odoc_theme ~esy_mode ~max_spawn ()] is a
       configuration with given attributes. If unspecified they are
       discovered. *)
 

@@ -68,7 +68,7 @@ let browse_cmd background browser field pkg_names conf =
   | `Issues -> Opam.bug_reports
   | `Online_doc -> Opam.doc
   in
-  let pkgs = Opam.query pkgs in
+  let pkgs = Opam.query ~esy_mode:false pkgs in
   let uris = List.concat (List.map (fun (_, o) -> get_uris o) pkgs) in
   let rec loop exit = function
   | [] -> exit
@@ -243,13 +243,13 @@ let pkg_cmd no_pager out_fmt pkg_names conf =
           Pkg.pp_name pkg Pkg.pp_version (Opam.version o)
           (Fmt.tty [`Faint] Fpath.pp) (Pkg.path pkg)
       in
-      let pkgs = Opam.query pkgs in
+      let pkgs = Opam.query ~esy_mode:false pkgs in
       (fun ppf () -> (Fmt.list pp_pkg) ppf pkgs)
   | `Long ->
       let pp_pkg ppf (pkg, i) =
         Fmt.pf ppf "@[<v>%a@,%a@]" Pkg.pp pkg Pkg_info.pp i
       in
-      let pkgs = Pkg_info.query ~docdir:(Conf.docdir conf) pkgs in
+      let pkgs = Pkg_info.query ~docdir:(Conf.docdir conf) ~esy_mode:false pkgs in
       (fun ppf () -> (Fmt.list pp_pkg) ppf pkgs)
   in
   Fmt.pr "@[<v>%a@]@." pp_pkgs (); 0
@@ -270,7 +270,7 @@ let show_cmd no_pager out_fmt show_empty field pkg_names conf =
             let pp_val ppf v = Fmt.pf ppf "@[<h>%a %s@]" Pkg.pp_name p v in
             Fmt.pf ppf "%a@," Fmt.(list pp_val) vs)
   in
-  let infos = Pkg_info.query ~docdir:(Conf.docdir conf) pkgs in
+  let infos = Pkg_info.query ~docdir:(Conf.docdir conf) ~esy_mode:false pkgs in
   let pp_field = pp_field field out_fmt show_empty in
   Fmt.pr "@[<v>%a@]@?" Fmt.(list ~sep:Fmt.nop pp_field) infos;
   0
@@ -354,24 +354,24 @@ let conf =
     let env = Arg.env_var "ODIG_JOBS" in
     B0_ui.Memo.jobs ~docs ~env ()
   in
-  let esy_support =
+  let esy_mode =
     let doc = "Run odig on an $(b,esy) environment and interpret directories \
                for version information using esy's conventions. \
                Make sure to point the --libdir to the correct location."
     in
-    let env = Arg.env_var "ODIG_ESY_SUPPORT" in
-    Arg.(value & flag & info ["esy-support"] ~doc ~env)
+    let env = Arg.env_var "ODIG_ESY_MODE" in
+    Arg.(value & flag & info ["esy-mode"] ~doc ~env)
   in
-  let conf cachedir libdir docdir sharedir odoc_theme esy_support max_spawn =
+  let conf cachedir libdir docdir sharedir odoc_theme esy_mode max_spawn =
     match
-      Conf.v ?libdir ?cachedir ?docdir ?sharedir ?odoc_theme ~esy_support ~max_spawn ()
+      Conf.v ?libdir ?cachedir ?docdir ?sharedir ?odoc_theme ~esy_mode ~max_spawn ()
     with
     | Ok v -> `Ok v
     | Error e -> `Error (false, e)
   in
   Term.(ret @@
         (const conf $ cachedir $ libdir $ docdir $ sharedir $ odoc_theme $
-         esy_support $ max_spawn))
+         esy_mode $ max_spawn))
 
 let pkgs_pos1_nonempty, pkgs_pos, pkgs_pos1, pkgs_opt =
   let doc = "Package to consider (repeatable)." in

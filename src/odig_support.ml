@@ -54,7 +54,7 @@ module Pkg = struct
   (* Capture the version from the directory string *)
   let esy_regex = Str.regexp {|^opam__s__\(.+\)-opam__c__\([^-]+\)-\([^-]+\)$|}
 
-  let of_dir ~esy_support dir =
+  let of_dir ~esy_mode dir =
     Log.time (fun _ m -> m "package list of %a" Fpath.pp dir) @@ fun () ->
     let ocaml_pkg () =
       let ocaml_where = Cmd.(arg "ocamlc" % "-where") in
@@ -63,44 +63,28 @@ module Pkg = struct
     in
     try
       let add_pkg _ name dir acc =
-        if esy_support then begin
+        if esy_mode then begin
           try
             let prefix = String.sub name 0 4 in
             if prefix = "ocaml" || prefix <> "opam" then acc
             else
               (* Extract version, subversion from esy directory name *)
               let _ = Str.search_forward esy_regex name 0 in
-              let name_s = Str.matched_group 1 name in
-              (* Remove double underscores from names *)
-              let name_s = String.split_on_char '_' name_s |>
-                List.filter (fun s -> s <> "") |>
-                String.concat "_" in
               let version = Str.matched_group 2 name in
               let subversion = Str.matched_group 3 name in
-              let name_opam = name_s ^ ".opam" in
-              let loop dir =
-                (v ~version:(version, subversion) name_s dir) :: acc
+              let lib_dir = Fpath.(dir / "lib") in
+              let subdirs =
+                Os.Dir.fold_dirs ~recurse:false
+                (fun _ name _ acc -> name::acc) lib_dir []
+                |> Result.to_failure
               in
-              (* There are 2 options for where the opam file (and installation) is *)
-              let install_dir2 = Fpath.(dir / "_build") in
-              let install_dir1 =
-                Fpath.(install_dir2 / "install" / "default" / "lib" / name_s) in
-              if Os.File.exists Fpath.(install_dir1 / "opam") = (Ok true) ||
-                 Os.File.exists Fpath.(install_dir1 / name_opam) = (Ok true) then
-                loop install_dir1
-              else
-                if Os.File.exists Fpath.(install_dir2 / "opam") = (Ok true) ||
-                   Os.File.exists Fpath.(install_dir2 / name_opam) = (Ok true) then
-                loop install_dir2
-              (*
-              else if Os.File.exists Fpath.(dir / "opam") = (Ok true) ||
-                      Os.File.exists Fpath.(dir / name_opam) = (Ok true) then
-                loop dir
-                *)
-              else begin
-                (* print_endline @@ "Using nothing for "^name_s; *)
-                acc
-              end
+              let name_s =
+                match subdirs with
+                | [] -> raise Not_found
+                | x::_ -> x
+              in
+              let install_dir = Fpath.(lib_dir / name_s) in
+              (v ~version:(version, subversion) name_s install_dir) :: acc
           with Not_found -> acc
         end else
           if name = "ocaml" then acc else (v name dir) :: acc
@@ -290,43 +274,76 @@ module Opam = struct
           parse_lines (String.Map.add n fields acc) lines
       | None | Some _ -> err name; acc
 
-  let query qpkgs =
-    (* opam show (at least until v2.0.3) returns results in package
-       name order which is too easy to get confused about (we need to
-       precisely know how opam orders and apparently we do not). So we
-       also query for the name: field first and rebind the data to packages
-       after parsing. *)
-    let pkgs = Pkg.Set.of_list qpkgs in
-    let add_opam p acc = match file p with None -> acc | Some f -> f :: acc in
-    let opams = Pkg.Set.fold add_opam pkgs [] in
-    let no_data pkgs = List.map (fun p -> (p, [])) pkgs in
-    match Lazy.force bin with
-    | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
-    | Ok opam ->
-        if opams = [] then no_data qpkgs else
-        let show = Cmd.(path opam % "show" % "--normalise" % "--no-lint") in
-        (* TODO: OPAM can't handle multiple packages of the same lib
-         * with different versions.
-         * For now, we'll invoke the command once per package *)
-        let show pkg = Cmd.(show % field_arg %% path pkg) in
-        let opam_string pkg =
-          match
-            Log.time (fun _ m -> m "opam show") @@ fun () ->
-            let stderr = `Stdo (Os.Cmd.out_null) in
-            Os.Cmd.run_out ~stderr (show pkg)
-          with
-          | Error e -> Log.err (fun m -> m "%s" e); ""
-          | Ok out -> out
-        in
-        let str = List.map opam_string opams |> String.concat "\n" in
-        let lines = String.cuts_left ~sep:"\n" str in
-        let infos = parse_lines String.Map.empty lines in
-        let find_info is p = match String.Map.find (Pkg.name p) is with
-          | exception Not_found -> p, []
-          | i -> p, i
-        in
-        try List.map (find_info infos) qpkgs with
-        | Not_found -> assert false
+  let query qpkgs ~esy_mode =
+    if esy_mode then
+      (* For esy_mode, we want to use just the name of the package *)
+      let pkgs = Pkg.Set.of_list qpkgs |> Pkg.Set.elements in
+      let opams = List.map (fun p -> Pkg.out_dirname ~subver:false p) pkgs in
+      let no_data pkgs = List.map (fun p -> (p, [])) pkgs in
+      match Lazy.force bin with
+      | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
+      | Ok opam ->
+          if opams = [] then no_data qpkgs else
+          let show = Cmd.(path opam % "show" % "--normalise" % "--no-lint") in
+          (* TODO: OPAM can't handle multiple packages of the same lib
+          * with different versions.
+          * For now, we'll invoke the command once per package *)
+          let show pkg = Cmd.(show % field_arg % pkg) in
+          let opam_string pkg =
+            match
+              Log.time (fun _ m -> m "opam show") @@ fun () ->
+              let stderr = `Stdo (Os.Cmd.out_null) in
+              Os.Cmd.run_out ~stderr (show pkg)
+            with
+            | Error e -> Log.err (fun m -> m "%s" e); ""
+            | Ok out -> out
+          in
+          let str = List.map opam_string opams |> String.concat "\n" in
+          let lines = String.cuts_left ~sep:"\n" str in
+          let infos = parse_lines String.Map.empty lines in
+          let find_info is p = match String.Map.find (Pkg.name p) is with
+            | exception Not_found -> p, []
+            | i -> p, i
+          in
+          try List.map (find_info infos) qpkgs with
+          | Not_found -> assert false
+    else
+      (* opam show (at least until v2.0.3) returns results in package
+        name order which is too easy to get confused about (we need to
+        precisely know how opam orders and apparently we do not). So we
+        also query for the name: field first and rebind the data to packages
+        after parsing. *)
+      let pkgs = Pkg.Set.of_list qpkgs in
+      let add_opam p acc = match file p with None -> acc | Some f -> f :: acc in
+      let opams = Pkg.Set.fold add_opam pkgs [] in
+      let no_data pkgs = List.map (fun p -> (p, [])) pkgs in
+      match Lazy.force bin with
+      | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
+      | Ok opam ->
+          if opams = [] then no_data qpkgs else
+          let show = Cmd.(path opam % "show" % "--normalise" % "--no-lint") in
+          (* TODO: OPAM can't handle multiple packages of the same lib
+          * with different versions.
+          * For now, we'll invoke the command once per package *)
+          let show pkg = Cmd.(show % field_arg %% path pkg) in
+          let opam_string pkg =
+            match
+              Log.time (fun _ m -> m "opam show") @@ fun () ->
+              let stderr = `Stdo (Os.Cmd.out_null) in
+              Os.Cmd.run_out ~stderr (show pkg)
+            with
+            | Error e -> Log.err (fun m -> m "%s" e); ""
+            | Ok out -> out
+          in
+          let str = List.map opam_string opams |> String.concat "\n" in
+          let lines = String.cuts_left ~sep:"\n" str in
+          let infos = parse_lines String.Map.empty lines in
+          let find_info is p = match String.Map.find (Pkg.name p) is with
+            | exception Not_found -> p, []
+            | i -> p, i
+          in
+          try List.map (find_info infos) qpkgs with
+          | Not_found -> assert false
 end
 
 module Docdir = struct
@@ -471,7 +488,7 @@ module Pkg_info = struct
 
   (* Queries *)
 
-  let query ~docdir pkgs =
+  let query ~docdir ~esy_mode pkgs =
     let rec loop acc = function
     | [] -> List.rev acc
     | (p, opam) :: ps ->
@@ -479,7 +496,7 @@ module Pkg_info = struct
         let docdir = lazy (Docdir.of_pkg ~docdir p) in
         loop ((p, {doc_cobjs; opam; docdir}) :: acc) ps
     in
-    loop [] (Opam.query pkgs)
+    loop [] (Opam.query ~esy_mode pkgs)
 end
 
 module Odoc_theme = struct
@@ -595,12 +612,12 @@ module Conf = struct
       htmldir : Fpath.t;
       odoc_theme : string;
       memo : (Memo.t, string) result Lazy.t;
-      esy_support : bool;
+      esy_mode : bool;
       pkgs : Pkg.t list Lazy.t;
       pkg_infos : Pkg_info.t Pkg.Map.t Lazy.t; }
 
   let v ?cachedir ?libdir ?docdir ?sharedir ?odoc_theme
-        ~esy_support ~max_spawn () =
+        ~esy_mode ~max_spawn () =
     try
       let cachedir = get_cachedir cachedir in
       let libdir = get_libdir libdir in
@@ -609,14 +626,14 @@ module Conf = struct
       let htmldir = Fpath.(cachedir / "html") in
       let odoc_theme = get_odoc_theme odoc_theme in
       let memo = memo cachedir ~max_spawn in
-      let pkgs = lazy (Pkg.of_dir ~esy_support libdir) in
+      let pkgs = lazy (Pkg.of_dir ~esy_mode libdir) in
       let pkg_infos = Lazy.from_fun @@ fun () ->
         let add acc (p, i) = Pkg.Map.add p i acc in
-        let pkg_infos = Pkg_info.query docdir (Lazy.force pkgs) in
+        let pkg_infos = Pkg_info.query ~docdir ~esy_mode (Lazy.force pkgs) in
         List.fold_left add Pkg.Map.empty pkg_infos
       in
       Ok { cachedir; libdir; docdir; sharedir; htmldir; odoc_theme; memo;
-           esy_support; pkgs; pkg_infos }
+           esy_mode; pkgs; pkg_infos }
     with
     | Failure e -> Fmt.error "conf: %s" e
 
