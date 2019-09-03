@@ -29,7 +29,7 @@ module Pkg = struct
   let path x = x.path
   let v ?version name path = {name; version; path}
 
-  let out_dirname ?(subver=false) x = match x.version with
+  let out_dirname ?(subver=true) x = match x.version with
     | Some (v, s) when subver -> Fmt.str "%s.%s-%s" x.name v s
     | Some (v, _) -> Fmt.str "%s.%s" x.name v
     | _ -> x.name
