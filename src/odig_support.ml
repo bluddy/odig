@@ -53,6 +53,9 @@ module Pkg = struct
 
   (* Capture the version from the directory string *)
   let esy_regex = Str.regexp {|^opam__s__\(.+\)-opam__c__\([^-]+\)-\([^-]+\)$|}
+  let twounder_regex = Str.regexp {|__|}
+  let xxx_regex = Str.regexp {|XXX|}
+  let under_regex = Str.regexp {|_|}
 
   let of_dir ~esy_mode dir =
     Log.time (fun _ m -> m "package list of %a" Fpath.pp dir) @@ fun () ->
@@ -72,18 +75,24 @@ module Pkg = struct
               let _ = Str.search_forward esy_regex name 0 in
               let version = Str.matched_group 2 name in
               let subversion = Str.matched_group 3 name in
+              let name_s = Str.matched_group 1 name in
+              (* Double underscores become underscores. Single become dashes *)
+              let name_s = Str.global_replace twounder_regex "XXX" name_s in
+              let name_s = Str.global_replace under_regex "-" name_s in
+              let name_s = Str.global_replace xxx_regex "_" name_s in
               let lib_dir = Fpath.(dir / "lib") in
+              (* Not reliable for opam package name *)
               let subdirs =
                 Os.Dir.fold_dirs ~recurse:false
                 (fun _ name _ acc -> name::acc) lib_dir []
                 |> Result.to_failure
               in
-              let name_s =
+              let dir_name_s =
                 match subdirs with
                 | [] -> raise Not_found
                 | x::_ -> x
               in
-              let install_dir = Fpath.(lib_dir / name_s) in
+              let install_dir = Fpath.(lib_dir / dir_name_s) in
               (v ~version:(version, subversion) name_s install_dir) :: acc
           with Not_found -> acc
         end else
