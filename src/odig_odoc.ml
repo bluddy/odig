@@ -209,51 +209,80 @@ let cobj_deps_to_odoc_deps b deps k =
   in
   loop dep_candidates_list []
 
+let exclusions = ["dune"; "ocmalbuild"; "ocamlfind"]
+
 (* esy lists all of its dependencies in .info files *)
 let esy_odoc_deps pkg =
   let name = Pkg.name pkg in
-  let ver, subver = Option.get @@ Pkg.version pkg in
-  (* Get the info file *)
-  let path = Fpath.(parent @@ parent @@ parent @@ parent @@ Pkg.path pkg) in
-  let info_name = Esy.long_name_of_pkg name ver subver ^ ".info" in
-  let file = Fpath.(path / "b" / info_name) in
-  let json = Yojson.Basic.from_file @@ Fpath.to_string file in
-  let dep_list = match json with
-    | `Assoc l ->
-        begin
-          match List.assoc "idInfo" l with
-            | `Assoc l ->
-                begin
-                  match List.assoc "dependencies" l with
-                  | `List l ->
-                        List.map (function
-                        | `String s -> s
-                        | _ -> invalid_arg "Expected json string") l
-                  | _ -> invalid_arg "Expected json list"
-                end
-            | _ -> invalid_arg "Expected json assoc"
-        end
-    | _ -> invalid_arg "Expected json assoc"
-  in
-  (* turn dependency list into proper file paths *)
-  let to_path pkg_longname =
-    let pkg_name, _, _ = Esy.name_ver_of_long_name pkg_longname in
-    Fpath.(path / "i" /  pkg_longname / "lib" / pkg_name)
-  in
-  List.map to_path dep_list
+  match Pkg.version pkg with
+  | None -> invalid_arg name
+  | Some (ver, subver) ->
+    (* Get the info file *)
+    let path = Fpath.(parent @@ parent @@ parent @@ parent @@ Pkg.path pkg) in
+    let info_name = Esy.long_name_of_pkg name ver subver ^ ".info" in
+    let file = Fpath.(path / "b" / info_name) in
+    let json = Yojson.Basic.from_file @@ Fpath.to_string file in
+    let dep_list = match json with
+      | `Assoc l ->
+          begin
+            match List.assoc "idInfo" l with
+              | `Assoc l ->
+                  begin
+                    match List.assoc "dependencies" l with
+                    | `List l ->
+                          List.map (function
+                          | `String s -> s
+                          | _ -> invalid_arg "Expected json string") l
+                    | exception Not_found -> invalid_arg "Couldn't find dependencies"
+                    | _ -> invalid_arg "Expected json list"
+                  end
+              | exception Not_found -> invalid_arg "Couldn't find 'idInfo'"
+              | _ -> invalid_arg "Expected json assoc"
+          end
+      | _ -> invalid_arg "Expected json assoc"
+    in
+    let dep_list =
+      List.filter (fun s ->
+        try
+          String.sub s 0 4 = "opam"
+        with Invalid_argument _ -> false) dep_list
+    in
+    (* turn dependency list into proper file paths *)
+    let to_path pkg_longname =
+      let lib_dir = Fpath.(path / "i" /  pkg_longname / "lib") in
+      let subdirs =
+        Os.Dir.fold_dirs ~recurse:false
+        (fun _ name _ acc -> name::acc) lib_dir []
+        |> Result.to_failure
+      in
+      match subdirs with
+      | [] -> None
+      | name::_ when List.mem name exclusions -> None
+      | name::_ ->
+          let dir = Fpath.(lib_dir / name / "dummy") in
+          Some dir
+    in
+    List.filter_map to_path dep_list
 
 let cobj_to_odoc b cobj ~esy_mode =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
+  let pkg = Doc_cobj.pkg cobj in
   let () =
-    if esy_mode then
-      let odoc_deps = esy_odoc_deps (Doc_cobj.pkg cobj) in
+    if esy_mode && (Pkg.name pkg <> "ocaml") then begin
+      let odoc_deps = esy_odoc_deps pkg in
+      (*
+      print_endline @@ "XXX here1 " ^ Pkg.name pkg ; (* debug *)
+      List.iter (fun p -> print_endline @@ Fpath.to_string p) odoc_deps; (* debug *)
+      print_endline "XXX here2"; (* debug *)
+      *)
       let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
       let hidden = Doc_cobj.hidden cobj in
       let cobj = Doc_cobj.path cobj in
       let writes = [writes] in
       B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
-    else begin
+    end else begin
+      (* print_endline "XXX here3"; (* debug *) *)
       B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
       cobj_deps b cobj @@ fun deps ->
       cobj_deps_to_odoc_deps b deps @@ fun odoc_deps ->

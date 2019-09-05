@@ -20,7 +20,7 @@ end
 
 module Esy = struct
   (* Capture the version from the directory string *)
-  let esy_regex = Str.regexp {|^opam__s__\(.+\)-opam__c__\([^-]+\)-\([^-]+\)$|}
+  let esy_regex = Str.regexp {|^opam__s__\(.+\)-opam__c__\(.+\)-\([^-]+\)$|}
   let twounder_regex = Str.regexp {|__|}
   let xxx_regex = Str.regexp {|XXX|}
   let under_regex = Str.regexp {|_|}
@@ -40,17 +40,20 @@ module Esy = struct
 
   let name_ver_of_long_name name = 
     (* Extract version, subversion from esy directory name *)
-    let _ = Str.search_forward esy_regex name 0 in
-    let version = Str.matched_group 2 name in
-    let subversion = Str.matched_group 3 name in
-    let name_s = Str.matched_group 1 name in
-    (* Double underscores become underscores. Single become dashes *)
-    let name_s =
-      Str.global_replace twounder_regex "XXX" name_s |>
-      Str.global_replace under_regex "-" |>
-      Str.global_replace xxx_regex "_"
-    in
-    name_s, version, subversion
+    try
+      let _ = Str.search_forward esy_regex name 0 in
+      let version = Str.matched_group 2 name in
+      let subversion = Str.matched_group 3 name in
+      let name_s = Str.matched_group 1 name in
+      (* Double underscores become underscores. Single become dashes *)
+      let name_s =
+        Str.global_replace twounder_regex "XXX" name_s |>
+        Str.global_replace under_regex "-" |>
+        Str.global_replace xxx_regex "_"
+      in
+      name_s, version, subversion
+    with Not_found ->
+      invalid_arg @@ "Cannot convert long_name " ^ name
 end
 
 module Pkg = struct
@@ -98,7 +101,7 @@ module Pkg = struct
         if esy_mode then begin
           try
             let prefix = String.sub name 0 4 in
-            if prefix = "ocaml" || prefix <> "opam" then acc
+            if prefix <> "opam" then acc
             else
               (* Extract version, subversion from esy directory name *)
               let name_s, ver, subver = Esy.name_ver_of_long_name name in
