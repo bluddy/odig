@@ -18,6 +18,41 @@ module Digest = struct
   module Map = Map.Make (Digest)
 end
 
+module Esy = struct
+  (* Capture the version from the directory string *)
+  let esy_regex = Str.regexp {|^opam__s__\(.+\)-opam__c__\([^-]+\)-\([^-]+\)$|}
+  let twounder_regex = Str.regexp {|__|}
+  let xxx_regex = Str.regexp {|XXX|}
+  let under_regex = Str.regexp {|_|}
+  let dash_regex = Str.regexp {|-|}
+
+  let long_name_of_pkg name ver subver =
+    let name =
+      Str.global_replace under_regex "XXX" name |>
+      Str.global_replace dash_regex "_" |>
+      Str.global_replace xxx_regex "__"
+    in
+    Printf.sprintf
+    "opam__s__%s-opam__c__%s-%s"
+      (String.lowercase name)
+      ver
+      subver
+
+  let name_ver_of_long_name name = 
+    (* Extract version, subversion from esy directory name *)
+    let _ = Str.search_forward esy_regex name 0 in
+    let version = Str.matched_group 2 name in
+    let subversion = Str.matched_group 3 name in
+    let name_s = Str.matched_group 1 name in
+    (* Double underscores become underscores. Single become dashes *)
+    let name_s =
+      Str.global_replace twounder_regex "XXX" name_s |>
+      Str.global_replace under_regex "-" |>
+      Str.global_replace xxx_regex "_"
+    in
+    name_s, version, subversion
+end
+
 module Pkg = struct
   type t = {
     name : string;
@@ -51,12 +86,6 @@ module Pkg = struct
   module Set = Set.Make (T)
   module Map = Map.Make (T)
 
-  (* Capture the version from the directory string *)
-  let esy_regex = Str.regexp {|^opam__s__\(.+\)-opam__c__\([^-]+\)-\([^-]+\)$|}
-  let twounder_regex = Str.regexp {|__|}
-  let xxx_regex = Str.regexp {|XXX|}
-  let under_regex = Str.regexp {|_|}
-
   let of_dir ~esy_mode dir =
     Log.time (fun _ m -> m "package list of %a" Fpath.pp dir) @@ fun () ->
     let ocaml_pkg () =
@@ -72,14 +101,7 @@ module Pkg = struct
             if prefix = "ocaml" || prefix <> "opam" then acc
             else
               (* Extract version, subversion from esy directory name *)
-              let _ = Str.search_forward esy_regex name 0 in
-              let version = Str.matched_group 2 name in
-              let subversion = Str.matched_group 3 name in
-              let name_s = Str.matched_group 1 name in
-              (* Double underscores become underscores. Single become dashes *)
-              let name_s = Str.global_replace twounder_regex "XXX" name_s in
-              let name_s = Str.global_replace under_regex "-" name_s in
-              let name_s = Str.global_replace xxx_regex "_" name_s in
+              let name_s, ver, subver = Esy.name_ver_of_long_name name in
               let lib_dir = Fpath.(dir / "lib") in
               (* Not reliable for opam package name *)
               let subdirs =
@@ -93,7 +115,7 @@ module Pkg = struct
                 | x::_ -> x
               in
               let install_dir = Fpath.(lib_dir / dir_name_s) in
-              (v ~version:(version, subversion) name_s install_dir) :: acc
+              (v ~version:(ver, subver) name_s install_dir) :: acc
           with Not_found -> acc
         end else
           if name = "ocaml" then acc else (v name dir) :: acc
@@ -652,6 +674,7 @@ module Conf = struct
   let sharedir c = c.sharedir
   let htmldir c = c.htmldir
   let odoc_theme c = c.odoc_theme
+  let esy_mode c = c.esy_mode
   let pp ppf c =
     Fmt.pf ppf "@[<v>";
     Fmt.field "cachedir" Fpath.pp ppf c.cachedir; Fmt.cut ppf ();

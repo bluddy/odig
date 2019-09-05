@@ -209,19 +209,61 @@ let cobj_deps_to_odoc_deps b deps k =
   in
   loop dep_candidates_list []
 
-let cobj_to_odoc b cobj =
+(* esy lists all of its dependencies in .info files *)
+let esy_odoc_deps pkg =
+  let name = Pkg.name pkg in
+  let ver, subver = Option.get @@ Pkg.version pkg in
+  (* Get the info file *)
+  let path = Fpath.(parent @@ parent @@ parent @@ parent @@ Pkg.path pkg) in
+  let info_name = Esy.long_name_of_pkg name ver subver ^ ".info" in
+  let file = Fpath.(path / "b" / info_name) in
+  let json = Yojson.Basic.from_file @@ Fpath.to_string file in
+  let dep_list = match json with
+    | `Assoc l ->
+        begin
+          match List.assoc "idInfo" l with
+            | `Assoc l ->
+                begin
+                  match List.assoc "dependencies" l with
+                  | `List l ->
+                        List.map (function
+                        | `String s -> s
+                        | _ -> invalid_arg "Expected json string") l
+                  | _ -> invalid_arg "Expected json list"
+                end
+            | _ -> invalid_arg "Expected json assoc"
+        end
+    | _ -> invalid_arg "Expected json assoc"
+  in
+  (* turn dependency list into proper file paths *)
+  let to_path pkg_longname =
+    let pkg_name, _, _ = Esy.name_ver_of_long_name pkg_longname in
+    Fpath.(path / "i" /  pkg_longname / "lib" / pkg_name)
+  in
+  List.map to_path dep_list
+
+let cobj_to_odoc b cobj ~esy_mode =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
-  begin
-    B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
-    cobj_deps b cobj @@ fun deps ->
-    cobj_deps_to_odoc_deps b deps @@ fun odoc_deps ->
-    B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
-    let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
-    let hidden = Doc_cobj.hidden cobj in
-    let cobj = Doc_cobj.path cobj in
-    B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
-  end;
+  let () =
+    if esy_mode then
+      let odoc_deps = esy_odoc_deps (Doc_cobj.pkg cobj) in
+      let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
+      let hidden = Doc_cobj.hidden cobj in
+      let cobj = Doc_cobj.path cobj in
+      let writes = [writes] in
+      B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
+    else begin
+      B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
+      cobj_deps b cobj @@ fun deps ->
+      cobj_deps_to_odoc_deps b deps @@ fun odoc_deps ->
+      B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
+      let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
+      let hidden = Doc_cobj.hidden cobj in
+      let cobj = Doc_cobj.path cobj in
+      B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
+    end
+  in
   to_odoc
 
 let mld_to_odoc b pkg pkg_odocs mld =
@@ -313,7 +355,7 @@ let link_odoc_docdir b pkg pkg_info =
   let dst = Fpath.(pkg_htmldir b pkg / "_docdir") in
   link_if_exists src dst
 
-let pkg_to_html b pkg =
+let pkg_to_html b pkg ~esy_mode =
   let pkg_info = try Pkg.Map.find pkg (Conf.pkg_infos b.conf) with
   | Not_found -> assert false
   in
@@ -322,7 +364,7 @@ let pkg_to_html b pkg =
   match cobjs = [] && mlds = [] with
   | true -> false
   | false ->
-      let odocs = List.map (cobj_to_odoc b) cobjs in
+      let odocs = List.map (cobj_to_odoc b ~esy_mode) cobjs in
       let mld_odocs = mlds_to_odoc b pkg pkg_info odocs mlds in
       let odoc_files = List.rev_append odocs mld_odocs in
       let pkg_odoc_dir = pkg_odocdir b pkg in
@@ -382,11 +424,11 @@ let write_pkgs_index b ~ocaml_manual_uri =
   Ok (Odig_odoc_page.pkg_list b.conf ~index_title ~raw_index_intro
         ~tag_index:b.tag_index ~ocaml_manual_uri)
 
-let rec build b = match Pkg.Set.choose b.pkgs_todo with
+let rec build b ~esy_mode = match Pkg.Set.choose b.pkgs_todo with
 | exception Not_found ->
     Memo.stir ~block:true b.m;
     begin match Pkg.Set.is_empty b.pkgs_todo with
-    | false -> build b
+    | false -> build b ~esy_mode
     | true ->
         write_support_files b;
         let ocaml_manual_uri = write_ocaml_manual b |> Log.if_error ~use:None in
@@ -396,9 +438,9 @@ let rec build b = match Pkg.Set.choose b.pkgs_todo with
 | pkg ->
     b.pkgs_todo <- Pkg.Set.remove pkg b.pkgs_todo;
     b.pkgs_seen <- Pkg.Set.add pkg b.pkgs_seen;
-    let gens = pkg_to_html b pkg in
+    let gens = pkg_to_html b pkg ~esy_mode in
     if not gens then (b.pkgs_seen <- Pkg.Set.remove pkg b.pkgs_seen);
-    build b
+    build b ~esy_mode
 
 let pp_never ppf fs =
   Fmt.pf ppf "@[<v>Roots never became ready:@, %a" Fpath.Set.dump fs
@@ -409,7 +451,7 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
     let b =
       builder memo conf ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo
     in
-    build b |> Log.if_error_pp pp_never ~use:();
+    build b ~esy_mode:(Conf.esy_mode conf) |> Log.if_error_pp pp_never ~use:();
     find_and_set_theme conf;
     Log.info (fun m -> m ~header:"STATS" "%a" B0_ui.Memo.pp_stats memo);
     Ok ()

@@ -68,7 +68,7 @@ let browse_cmd background browser field pkg_names conf =
   | `Issues -> Opam.bug_reports
   | `Online_doc -> Opam.doc
   in
-  let pkgs = Opam.query ~esy_mode:false pkgs in
+  let pkgs = Opam.query ~esy_mode:(Conf.esy_mode conf) pkgs in
   let uris = List.concat (List.map (fun (_, o) -> get_uris o) pkgs) in
   let rec loop exit = function
   | [] -> exit
@@ -143,7 +143,7 @@ let doc_cmd background browser pkg_names update no_update show_files conf =
           let force = false and pkg_deps = true and tag_index = true in
           Result.bind
             (odoc_gen conf ~force ~index_title ~index_intro ~pkg_deps
-               ~tag_index pkgs)
+               ~tag_index  pkgs)
             (fun () -> Ok files)
   in
   Log.if_error ~use:err_some @@
@@ -243,13 +243,14 @@ let pkg_cmd no_pager out_fmt pkg_names conf =
           Pkg.pp_name pkg Pkg.pp_version (Opam.version o)
           (Fmt.tty [`Faint] Fpath.pp) (Pkg.path pkg)
       in
-      let pkgs = Opam.query ~esy_mode:false pkgs in
+      let pkgs = Opam.query ~esy_mode:(Conf.esy_mode conf) pkgs in
       (fun ppf () -> (Fmt.list pp_pkg) ppf pkgs)
   | `Long ->
       let pp_pkg ppf (pkg, i) =
         Fmt.pf ppf "@[<v>%a@,%a@]" Pkg.pp pkg Pkg_info.pp i
       in
-      let pkgs = Pkg_info.query ~docdir:(Conf.docdir conf) ~esy_mode:false pkgs in
+      let pkgs = Pkg_info.query ~docdir:(Conf.docdir conf)
+        ~esy_mode:(Conf.esy_mode conf) pkgs in
       (fun ppf () -> (Fmt.list pp_pkg) ppf pkgs)
   in
   Fmt.pr "@[<v>%a@]@." pp_pkgs (); 0
@@ -270,7 +271,8 @@ let show_cmd no_pager out_fmt show_empty field pkg_names conf =
             let pp_val ppf v = Fmt.pf ppf "@[<h>%a %s@]" Pkg.pp_name p v in
             Fmt.pf ppf "%a@," Fmt.(list pp_val) vs)
   in
-  let infos = Pkg_info.query ~docdir:(Conf.docdir conf) ~esy_mode:false pkgs in
+  let infos = Pkg_info.query ~docdir:(Conf.docdir conf)
+    ~esy_mode:(Conf.esy_mode conf) pkgs in
   let pp_field = pp_field field out_fmt show_empty in
   Fmt.pr "@[<v>%a@]@?" Fmt.(list ~sep:Fmt.nop pp_field) infos;
   0

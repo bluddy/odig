@@ -30,6 +30,11 @@ module Digest : sig
   module Map : Map.S with type key = t
 end
 
+module Esy: sig
+  val long_name_of_pkg: string -> string -> string -> string
+  val name_ver_of_long_name : string -> string * string * string
+end
+
 (** Packages *)
 module Pkg : sig
 
@@ -372,6 +377,9 @@ module Conf : sig
 
   val odoc_theme : t -> string
   (** [odoc_theme c] is [c]'s odoc theme to use. *)
+
+  val esy_mode : t -> bool
+  (** [esy_mode c] is whether we're in esy mode. *)
 
   val pp : t Fmt.t
   (** [pp] formats configurations. *)
