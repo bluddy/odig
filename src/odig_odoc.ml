@@ -259,8 +259,14 @@ let esy_odoc_deps pkg =
       | [] -> None
       | name::_ when List.mem name exclusions -> None
       | name::_ ->
-          let dir = Fpath.(lib_dir / name / "dummy") in
-          Some dir
+          let path = Fpath.(lib_dir / name) in
+          let contents = Array.to_list @@ Sys.readdir @@ Fpath.to_string path in
+          let files = List.filter (fun s ->
+            let ext = Filename.extension s in
+            ext = ".cmt" || ext = ".cmti") contents in
+          match files with
+          | [] -> None
+          | name::_ -> Some (Fpath.(path / name))
     in
     List.filter_map to_path dep_list
 
