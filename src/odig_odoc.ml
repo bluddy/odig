@@ -154,7 +154,7 @@ let require_cobj_deps b cobj = (* Also used to find the digest of cobj *)
       fut_deps
 
 let cobj_deps b cobj k = Memo.Fut.wait (require_cobj_deps b cobj) k
-let cobj_deps_to_odoc_deps b deps k =
+let cobj_deps_to_odoc_deps b deps k ?(esy_deps=None) =
   (* For each dependency this tries to find a cmi, cmti or cmt file
      that matches the dependency name and digest. We first look by
      dependency name in the universe and then request on the fly the
@@ -187,14 +187,27 @@ let cobj_deps_to_odoc_deps b deps k =
           match Digest.Map.find digest b.cobjs_by_digest with
           | exception Not_found -> loop cs
           | cobj :: _ (* FIXME Log on debug. *) ->
-              begin match b.pkg_deps with
-              | true ->
-                  require_pkg b (Doc_cobj.pkg cobj);
+              let handle_pkg pkg =
+                if b.pkg_deps then begin
+                  require_pkg b pkg;
                   k (odoc_file_for_cobj b cobj :: acc)
-              | false ->
-                  let pkg = Doc_cobj.pkg cobj in
+                end
+                else begin
                   if Pkg.Set.mem pkg b.pkgs_todo || Pkg.Set.mem pkg b.pkgs_seen
                   then k (odoc_file_for_cobj b cobj :: acc)
+                  else loop cs
+                end
+              in
+              let pkg = Doc_cobj.pkg cobj in
+              begin match esy_deps with
+              | None -> handle_pkg pkg
+              | Some esy_deps ->
+                  let name = Pkg.out_dirname ~subver:true pkg in
+                  (*String.Set.iter (fun s -> print_endline s) esy_deps; *)
+                  Printf.printf "name = %s, found = %B\n" name
+                    (name = "ocaml" || String.Set.mem name esy_deps); (* debug *)
+                  if name = "ocaml" ||
+                     String.Set.mem name esy_deps then handle_pkg pkg
                   else loop cs
               end
           | [] -> assert false
@@ -242,56 +255,52 @@ let esy_odoc_deps pkg =
       | _ -> invalid_arg "Expected json assoc"
     in
     let dep_list =
+      (* get only opam__ dependencies *)
       List.filter (fun s ->
         try
-          String.sub s 0 4 = "opam"
+          let prefix = String.sub s 0 4 in
+          prefix = "opam" || prefix = "ocaml"
         with Invalid_argument _ -> false) dep_list
     in
-    (* turn dependency list into proper file paths *)
-    let to_path pkg_longname =
-      let lib_dir = Fpath.(path / "i" /  pkg_longname / "lib") in
-      let subdirs =
-        Os.Dir.fold_dirs ~recurse:false
-        (fun _ name _ acc -> name::acc) lib_dir []
-        |> Result.to_failure
-      in
-      match subdirs with
-      | [] -> None
-      | name::_ when List.mem name exclusions -> None
-      | name::_ ->
-          let path = Fpath.(lib_dir / name) in
-          let contents = Array.to_list @@ Sys.readdir @@ Fpath.to_string path in
-          let files = List.filter (fun s ->
-            let ext = Filename.extension s in
-            ext = ".cmt" || ext = ".cmti") contents in
-          match files with
-          | [] -> None
-          | name::_ -> Some (Fpath.(path / name))
+    let dep_list =
+    List.filter_map (fun s ->
+        let name, ver, subver = Esy.name_ver_of_long_name s in
+        if List.mem name exclusions then None
+        else
+           Some(Printf.sprintf "%s.%s-%s" name ver subver))
+      dep_list
     in
-    List.filter_map to_path dep_list
+    String.Set.of_list dep_list
 
 let cobj_to_odoc b cobj ~esy_mode =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
   let pkg = Doc_cobj.pkg cobj in
+  print_endline @@ "XXX Package "^Pkg.out_dirname pkg; (* debug *)
+  let esy_deps =
+    if esy_mode then
+      if Pkg.name pkg = "ocaml" then None
+      else
+        let deps = esy_odoc_deps pkg in
+        String.Set.iter (fun s -> print_endline s) deps; (*debug *)
+        Some deps
+    else None
+  in
   let () =
-    if esy_mode && (Pkg.name pkg <> "ocaml") then begin
-      let odoc_deps = esy_odoc_deps pkg in
-      (*
-      print_endline @@ "XXX here1 " ^ Pkg.name pkg ; (* debug *)
-      List.iter (fun p -> print_endline @@ Fpath.to_string p) odoc_deps; (* debug *)
-      print_endline "XXX here2"; (* debug *)
-      *)
+    if esy_mode then begin
+      B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
+      cobj_deps b cobj @@ fun deps ->
+      cobj_deps_to_odoc_deps b deps ~esy_deps @@ fun odoc_deps ->
+      B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
       let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
       let hidden = Doc_cobj.hidden cobj in
       let cobj = Doc_cobj.path cobj in
-      let writes = [writes] in
       B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
     end else begin
       (* print_endline "XXX here3"; (* debug *) *)
       B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
       cobj_deps b cobj @@ fun deps ->
-      cobj_deps_to_odoc_deps b deps @@ fun odoc_deps ->
+      cobj_deps_to_odoc_deps b deps ~esy_deps:None @@ fun odoc_deps ->
       B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
       let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
       let hidden = Doc_cobj.hidden cobj in
@@ -371,7 +380,7 @@ let mlds_to_odoc b pkg pkg_info pkg_odocs mlds =
 
 let html_deps_resolve b deps k =
   let deps = List.rev_map B0_odoc.Html.Dep.to_compile_dep deps in
-  cobj_deps_to_odoc_deps b deps k
+  cobj_deps_to_odoc_deps b deps k ~esy_deps:None
 
 let odoc_to_html b ~odoc_deps odoc =
   let theme_uri = theme_dir in
