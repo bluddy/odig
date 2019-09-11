@@ -154,7 +154,7 @@ let require_cobj_deps b cobj = (* Also used to find the digest of cobj *)
       fut_deps
 
 let cobj_deps b cobj k = Memo.Fut.wait (require_cobj_deps b cobj) k
-let cobj_deps_to_odoc_deps b deps k ?(esy_deps=None) =
+let cobj_deps_to_odoc_deps b deps k ~esy_deps =
   (* For each dependency this tries to find a cmi, cmti or cmt file
      that matches the dependency name and digest. We first look by
      dependency name in the universe and then request on the fly the
@@ -225,9 +225,10 @@ let cobj_deps_to_odoc_deps b deps k ?(esy_deps=None) =
 let exclusions = ["dune"; "ocmalbuild"; "ocamlfind"]
 
 (* esy lists all of its dependencies in .info files *)
-let esy_odoc_deps pkg =
+let esy_pkg_deps pkg =
   let name = Pkg.name pkg in
-  match Pkg.version pkg with
+  if name = "ocaml" then String.Set.empty
+  else match Pkg.version pkg with
   | None -> invalid_arg name
   | Some (ver, subver) ->
     (* Get the info file *)
@@ -272,22 +273,18 @@ let esy_odoc_deps pkg =
     in
     String.Set.of_list dep_list
 
-let cobj_to_odoc b cobj ~esy_mode =
+let cobj_to_odoc b cobj ~esy_map =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
   let pkg = Doc_cobj.pkg cobj in
+  let pkg_name = Pkg.name pkg in
   print_endline @@ "XXX Package "^Pkg.out_dirname pkg; (* debug *)
-  let esy_deps =
-    if esy_mode then
-      if Pkg.name pkg = "ocaml" then None
-      else
-        let deps = esy_odoc_deps pkg in
-        String.Set.iter (fun s -> print_endline s) deps; (*debug *)
-        Some deps
-    else None
-  in
-  let () =
-    if esy_mode then begin
+  let () = match esy_map with
+    | Some esy_map ->
+      let esy_deps =
+        if Pkg.name pkg = "ocaml" then None
+        else String.Map.find_opt pkg_name esy_map
+      in
       B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
       cobj_deps b cobj @@ fun deps ->
       cobj_deps_to_odoc_deps b deps ~esy_deps @@ fun odoc_deps ->
@@ -296,8 +293,7 @@ let cobj_to_odoc b cobj ~esy_mode =
       let hidden = Doc_cobj.hidden cobj in
       let cobj = Doc_cobj.path cobj in
       B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
-    end else begin
-      (* print_endline "XXX here3"; (* debug *) *)
+    | None ->
       B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
       cobj_deps b cobj @@ fun deps ->
       cobj_deps_to_odoc_deps b deps ~esy_deps:None @@ fun odoc_deps ->
@@ -306,7 +302,6 @@ let cobj_to_odoc b cobj ~esy_mode =
       let hidden = Doc_cobj.hidden cobj in
       let cobj = Doc_cobj.path cobj in
       B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
-    end
   in
   to_odoc
 
@@ -399,7 +394,7 @@ let link_odoc_docdir b pkg pkg_info =
   let dst = Fpath.(pkg_htmldir b pkg / "_docdir") in
   link_if_exists src dst
 
-let pkg_to_html b pkg ~esy_mode =
+let pkg_to_html b pkg ~esy_map =
   let pkg_info = try Pkg.Map.find pkg (Conf.pkg_infos b.conf) with
   | Not_found -> assert false
   in
@@ -408,7 +403,7 @@ let pkg_to_html b pkg ~esy_mode =
   match cobjs = [] && mlds = [] with
   | true -> false
   | false ->
-      let odocs = List.map (cobj_to_odoc b ~esy_mode) cobjs in
+      let odocs = List.map (cobj_to_odoc b ~esy_map) cobjs in
       let mld_odocs = mlds_to_odoc b pkg pkg_info odocs mlds in
       let odoc_files = List.rev_append odocs mld_odocs in
       let pkg_odoc_dir = pkg_odocdir b pkg in
@@ -468,11 +463,11 @@ let write_pkgs_index b ~ocaml_manual_uri =
   Ok (Odig_odoc_page.pkg_list b.conf ~index_title ~raw_index_intro
         ~tag_index:b.tag_index ~ocaml_manual_uri)
 
-let rec build b ~esy_mode = match Pkg.Set.choose b.pkgs_todo with
+let rec build b ~esy_map = match Pkg.Set.choose b.pkgs_todo with
 | exception Not_found ->
     Memo.stir ~block:true b.m;
     begin match Pkg.Set.is_empty b.pkgs_todo with
-    | false -> build b ~esy_mode
+    | false -> build b ~esy_map
     | true ->
         write_support_files b;
         let ocaml_manual_uri = write_ocaml_manual b |> Log.if_error ~use:None in
@@ -482,9 +477,9 @@ let rec build b ~esy_mode = match Pkg.Set.choose b.pkgs_todo with
 | pkg ->
     b.pkgs_todo <- Pkg.Set.remove pkg b.pkgs_todo;
     b.pkgs_seen <- Pkg.Set.add pkg b.pkgs_seen;
-    let gens = pkg_to_html b pkg ~esy_mode in
+    let gens = pkg_to_html b pkg ~esy_map in
     if not gens then (b.pkgs_seen <- Pkg.Set.remove pkg b.pkgs_seen);
-    build b ~esy_mode
+    build b ~esy_map
 
 let pp_never ppf fs =
   Fmt.pf ppf "@[<v>Roots never became ready:@, %a" Fpath.Set.dump fs
@@ -495,7 +490,53 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
     let b =
       builder memo conf ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo
     in
-    build b ~esy_mode:(Conf.esy_mode conf) |> Log.if_error_pp pp_never ~use:();
+    let esy_map =
+      if Conf.esy_mode conf then
+        (* add dependencies of all packages to a map *)
+        (* TODO: get global list of packages from esy directories *)
+        let global_dep_map =
+          Pkg.Set.fold (fun pkg map ->
+              String.Map.add (Pkg.out_dirname pkg) (esy_pkg_deps pkg) map)
+            b.pkgs_todo
+            String.Map.empty
+        in
+        let pkg_set = String.Map.fold
+          (fun pkg _ set -> String.Set.add pkg set)
+          global_dep_map String.Set.empty
+        in
+        String.Set.iter print_endline pkg_set; (* debug *)
+        (* add transitive dependencies to new map *)
+        (* @sibling_deps: builds up a set of deps across sibling pkgs
+        * @done_map: the map we're building up of pkg->dep set
+        *)
+        let rec add_deps pkg (done_map, sibling_deps) =
+          let global_deps =
+            try
+              String.Map.find pkg global_dep_map
+            with Not_found -> failwith @@ "Couldn't find "^pkg
+          in
+          (* Find which of the deps have not been done yet *)
+          let done_deps = match String.Map.find_opt pkg done_map with
+            | None -> String.Set.empty
+            | Some s -> s
+          in
+          let todo_deps = String.Set.diff global_deps done_deps in
+          (* Now iterate over all the deps we still need to do *)
+          let child_map, my_deps =
+            String.Set.fold add_deps todo_deps (done_map, global_deps)
+          in
+          let my_map = String.Map.add pkg my_deps child_map in
+          let total_deps = String.Set.union sibling_deps my_deps in
+          my_map, total_deps
+        in
+        let esy_map, _ =
+          String.Set.fold add_deps pkg_set (String.Map.empty, String.Set.empty)
+        in
+        Some esy_map
+
+      else None
+    in
+    build b ~esy_map |> Log.if_error_pp pp_never ~use:();
     find_and_set_theme conf;
     Log.info (fun m -> m ~header:"STATS" "%a" B0_ui.Memo.pp_stats memo);
     Ok ()
