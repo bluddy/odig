@@ -278,7 +278,6 @@ let cobj_to_odoc b cobj ~esy_map =
   let writes = Fpath.(to_odoc + ".writes") in
   let pkg = Doc_cobj.pkg cobj in
   let pkg_name = Pkg.name pkg in
-  print_endline @@ "XXX Package "^Pkg.out_dirname pkg; (* debug *)
   let () = match esy_map with
     | Some esy_map ->
       let esy_deps =
@@ -493,7 +492,6 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
     let esy_map =
       if Conf.esy_mode conf then
         (* add dependencies of all packages to a map *)
-        (* TODO: get global list of packages from esy directories *)
         let global_dep_map =
           Pkg.Set.fold (fun pkg map ->
               String.Map.add (Pkg.out_dirname pkg) (esy_pkg_deps pkg) map)
@@ -504,16 +502,17 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
           (fun pkg _ set -> String.Set.add pkg set)
           global_dep_map String.Set.empty
         in
-        String.Set.iter print_endline pkg_set; (* debug *)
         (* add transitive dependencies to new map *)
         (* @sibling_deps: builds up a set of deps across sibling pkgs
         * @done_map: the map we're building up of pkg->dep set
         *)
-        let rec add_deps pkg (done_map, sibling_deps) =
+        let rec add_deps pkg ((done_map, sibling_deps) as acc) =
           let global_deps =
             try
               String.Map.find pkg global_dep_map
-            with Not_found -> failwith @@ "Couldn't find "^pkg
+            with Not_found ->
+              print_endline @@ "Couldn't find "^pkg;
+              String.Set.empty
           in
           (* Find which of the deps have not been done yet *)
           let done_deps = match String.Map.find_opt pkg done_map with
