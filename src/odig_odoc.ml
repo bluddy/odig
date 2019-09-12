@@ -202,10 +202,10 @@ let cobj_deps_to_odoc_deps b deps k ~esy_deps =
               begin match esy_deps with
               | None -> handle_pkg pkg
               | Some esy_deps ->
-                  let name = Pkg.out_dirname ~subver:true pkg in
+                  let name = String.lowercase @@ Pkg.out_dirname ~subver:true pkg in
                   (*String.Set.iter (fun s -> print_endline s) esy_deps; *)
-                  Printf.printf "name = %s, found = %B\n" name
-                    (name = "ocaml" || String.Set.mem name esy_deps); (* debug *)
+                  (* Printf.printf "name = %s, found = %B\n" name
+                    (name = "ocaml" || String.Set.mem name esy_deps); *) (* debug *)
                   if name = "ocaml" ||
                      String.Set.mem name esy_deps then handle_pkg pkg
                   else loop cs
@@ -274,7 +274,7 @@ let esy_pkg_deps pkg =
     String.Set.of_list dep_list
 
 let esy_dep_map b =
-  (* add dependencies of all packages to a map *)
+  (* add dependencies of all packages via esy to a map *)
   let global_dep_map =
     Pkg.Set.fold (fun pkg map ->
         String.Map.add (Pkg.out_dirname pkg) (esy_pkg_deps pkg) map)
@@ -287,14 +287,16 @@ let esy_dep_map b =
   in
   (* add transitive dependencies to new map *)
   (* @sibling_deps: builds up a set of deps across sibling pkgs
-  * @done_map: the map we're building up of pkg->dep set
+  *  @done_map: the map we're building up of pkg->dep set
+  *  @pass_siblings: don't build up siblings at highest level, but do
+  *    at lower levels.
   *)
-  let rec add_deps pkg ((done_map, sibling_deps) as acc) =
+  let rec add_deps ?(pass_siblings=true) pkg ((done_map, sibling_deps) as acc) =
     let global_deps =
       try
         String.Map.find pkg global_dep_map
       with Not_found ->
-        print_endline @@ "Couldn't find "^pkg;
+        print_endline @@ "Warning: esy_map build: couldn't find "^pkg;
         String.Set.empty
     in
     (* Find which of the deps have not been done yet *)
@@ -308,11 +310,17 @@ let esy_dep_map b =
       String.Set.fold add_deps todo_deps (done_map, global_deps)
     in
     let my_map = String.Map.add pkg my_deps child_map in
-    let total_deps = String.Set.union sibling_deps my_deps in
-    my_map, total_deps
+    (* At the highest level, we don't care about siblings, and computing
+     * union of all packages + dependencies is expensive *)
+    if pass_siblings then
+      let total_deps = String.Set.union sibling_deps my_deps in
+      my_map, total_deps
+    else
+      my_map, String.Set.empty
   in
   let esy_map, _ =
-    String.Set.fold add_deps pkg_set (String.Map.empty, String.Set.empty)
+    String.Set.fold (add_deps ~pass_siblings:false) pkg_set
+      (String.Map.empty, String.Set.empty)
   in
   esy_map
 
@@ -321,7 +329,7 @@ let cobj_to_odoc b cobj ~esy_map =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
   let pkg = Doc_cobj.pkg cobj in
-  let pkg_name = Pkg.name pkg in
+  let pkg_name = String.lowercase @@ Pkg.name pkg in
   let () = match esy_map with
     | Some esy_map ->
       let esy_deps =
@@ -499,6 +507,8 @@ let write_pkgs_index b ~ocaml_manual_uri =
   let index = Fpath.(b.htmldir / "index.html") in
   let index_title = b.index_title in
   let pkg_index p = Fpath.(b.htmldir / Pkg.out_dirname p / "index.html") in
+  (* Pkg.Set.iter (fun p -> print_endline @@ Pkg.out_dirname p) b.pkgs_seen; debug
+   * *)
   let reads = Pkg.Set.fold (fun p acc -> pkg_index p :: acc) b.pkgs_seen [] in
   let reads = match b.index_intro with None -> reads | Some f -> f :: reads in
   index_intro_to_html b @@ fun raw_index_intro ->
