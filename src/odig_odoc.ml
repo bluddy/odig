@@ -273,6 +273,50 @@ let esy_pkg_deps pkg =
     in
     String.Set.of_list dep_list
 
+let esy_dep_map b =
+  (* add dependencies of all packages to a map *)
+  let global_dep_map =
+    Pkg.Set.fold (fun pkg map ->
+        String.Map.add (Pkg.out_dirname pkg) (esy_pkg_deps pkg) map)
+      b.pkgs_todo
+      String.Map.empty
+  in
+  let pkg_set = String.Map.fold
+    (fun pkg _ set -> String.Set.add pkg set)
+    global_dep_map String.Set.empty
+  in
+  (* add transitive dependencies to new map *)
+  (* @sibling_deps: builds up a set of deps across sibling pkgs
+  * @done_map: the map we're building up of pkg->dep set
+  *)
+  let rec add_deps pkg ((done_map, sibling_deps) as acc) =
+    let global_deps =
+      try
+        String.Map.find pkg global_dep_map
+      with Not_found ->
+        print_endline @@ "Couldn't find "^pkg;
+        String.Set.empty
+    in
+    (* Find which of the deps have not been done yet *)
+    let done_deps = match String.Map.find_opt pkg done_map with
+      | None -> String.Set.empty
+      | Some s -> s
+    in
+    let todo_deps = String.Set.diff global_deps done_deps in
+    (* Now iterate over all the deps we still need to do *)
+    let child_map, my_deps =
+      String.Set.fold add_deps todo_deps (done_map, global_deps)
+    in
+    let my_map = String.Map.add pkg my_deps child_map in
+    let total_deps = String.Set.union sibling_deps my_deps in
+    my_map, total_deps
+  in
+  let esy_map, _ =
+    String.Set.fold add_deps pkg_set (String.Map.empty, String.Set.empty)
+  in
+  esy_map
+
+
 let cobj_to_odoc b cobj ~esy_map =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
@@ -491,49 +535,9 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
     in
     let esy_map =
       if Conf.esy_mode conf then
-        (* add dependencies of all packages to a map *)
-        let global_dep_map =
-          Pkg.Set.fold (fun pkg map ->
-              String.Map.add (Pkg.out_dirname pkg) (esy_pkg_deps pkg) map)
-            b.pkgs_todo
-            String.Map.empty
-        in
-        let pkg_set = String.Map.fold
-          (fun pkg _ set -> String.Set.add pkg set)
-          global_dep_map String.Set.empty
-        in
-        (* add transitive dependencies to new map *)
-        (* @sibling_deps: builds up a set of deps across sibling pkgs
-        * @done_map: the map we're building up of pkg->dep set
-        *)
-        let rec add_deps pkg ((done_map, sibling_deps) as acc) =
-          let global_deps =
-            try
-              String.Map.find pkg global_dep_map
-            with Not_found ->
-              print_endline @@ "Couldn't find "^pkg;
-              String.Set.empty
-          in
-          (* Find which of the deps have not been done yet *)
-          let done_deps = match String.Map.find_opt pkg done_map with
-            | None -> String.Set.empty
-            | Some s -> s
-          in
-          let todo_deps = String.Set.diff global_deps done_deps in
-          (* Now iterate over all the deps we still need to do *)
-          let child_map, my_deps =
-            String.Set.fold add_deps todo_deps (done_map, global_deps)
-          in
-          let my_map = String.Map.add pkg my_deps child_map in
-          let total_deps = String.Set.union sibling_deps my_deps in
-          my_map, total_deps
-        in
-        let esy_map, _ =
-          String.Set.fold add_deps pkg_set (String.Map.empty, String.Set.empty)
-        in
-        Some esy_map
-
-      else None
+        Some(esy_dep_map b)
+      else
+        None
     in
     build b ~esy_map |> Log.if_error_pp pp_never ~use:();
     find_and_set_theme conf;
