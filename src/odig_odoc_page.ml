@@ -226,7 +226,7 @@ let tag_list conf pkgs =
     El.splice (List.map tag_section classes)]
 
 let pkgs_with_htmldoc conf =
-  let by_names = Pkg.by_names ~use_dirname:true (Conf.pkgs conf) in
+  let by_names = Pkg.by_names ~use_dirname:true ~subver:true (Conf.pkgs conf) in
   let add_pkg _ name dir acc =
     let index = Fpath.(dir / "index.html") in
     let exists = Os.File.exists index |> Log.warn_if_error ~use:false in
