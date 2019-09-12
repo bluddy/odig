@@ -235,8 +235,8 @@ let esy_pkg_deps pkg =
     let path = Fpath.(parent @@ parent @@ parent @@ parent @@ Pkg.path pkg) in
     let info_name = Esy.long_name_of_pkg name ver subver ^ ".info" in
     let file = Fpath.(path / "b" / info_name) in
-    let json = Yojson.Basic.from_file @@ Fpath.to_string file in
-    let dep_list = match json with
+    let dep_list =
+      match Yojson.Basic.from_file @@ Fpath.to_string file with
       | `Assoc l ->
           begin
             match List.assoc "idInfo" l with
@@ -253,6 +253,7 @@ let esy_pkg_deps pkg =
               | exception Not_found -> invalid_arg "Couldn't find 'idInfo'"
               | _ -> invalid_arg "Expected json assoc"
           end
+      | exception _ -> []
       | _ -> invalid_arg "Expected json assoc"
     in
     let dep_list =
