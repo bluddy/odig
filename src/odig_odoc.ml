@@ -546,7 +546,16 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
     in
     let esy_map =
       if Conf.esy_mode conf then
-        Some(esy_dep_map b)
+        let map = esy_dep_map b in
+        (* debug *)
+        print_endline "Dependency Map:";
+        String.Map.iter (fun k v ->
+          print_endline @@ k^":";
+          String.Set.iter (fun s -> print_string @@ s^", ") v;
+          print_newline ()
+          )
+        map;
+        Some map
       else
         None
     in
