@@ -282,6 +282,16 @@ let esy_dep_map b =
       b.pkgs_todo
       String.Map.empty
   in
+  (* debug *)
+  print_endline "--- Global Dep Map: ---";
+  String.Map.iter (fun k v ->
+    print_endline @@ k^":";
+    String.Set.iter (fun p -> print_string @@ p^", ") v;
+    print_newline ()
+    )
+  global_dep_map;
+  print_endline "--- End Global Dep Map: ---";
+
   let pkg_set = String.Map.fold
     (fun pkg _ set -> String.Set.add pkg set)
     global_dep_map String.Set.empty
@@ -548,13 +558,13 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
       if Conf.esy_mode conf then
         let map = esy_dep_map b in
         (* debug *)
-        print_endline "Dependency Map:";
+        print_endline "--- Dependency Map: ---";
         String.Map.iter (fun k v ->
           print_endline @@ k^":";
           String.Set.iter (fun s -> print_string @@ s^", ") v;
-          print_newline ()
-          )
+          print_newline ())
         map;
+        print_endline "--- End Dependency Map ---";
         Some map
       else
         None
