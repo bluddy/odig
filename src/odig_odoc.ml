@@ -283,6 +283,7 @@ let esy_dep_map b =
       String.Map.empty
   in
   (* debug *)
+  (*
   print_endline "--- Global Dep Map: ---";
   String.Map.iter (fun k v ->
     print_endline @@ k^":";
@@ -291,6 +292,7 @@ let esy_dep_map b =
     )
   global_dep_map;
   print_endline "--- End Global Dep Map: ---";
+  *)
 
   let pkg_set = String.Map.fold
     (fun pkg _ set -> String.Set.add pkg set)
@@ -363,8 +365,9 @@ let cobj_to_odoc b cobj ~esy_map =
       let hidden = Doc_cobj.hidden cobj in
       let cobj = Doc_cobj.path cobj in
       (* debug *)
-      print_endline @@ "--- Pkg "^pkg^" deps:";
+      (* print_endline @@ "--- Pkg "^pkg^" deps:";
       List.iter (fun p -> print_endline @@ Fpath.to_string p) odoc_deps;
+      *)
       B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
   in
   to_odoc
@@ -560,6 +563,7 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
       if Conf.esy_mode conf then
         let map = esy_dep_map b in
         (* debug *)
+        (*
         print_endline "--- Dependency Map: ---";
         String.Map.iter (fun k v ->
           print_endline @@ k^":";
@@ -567,6 +571,7 @@ let gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs_todo =
           print_newline ())
         map;
         print_endline "--- End Dependency Map ---";
+        *)
         Some map
       else
         None
