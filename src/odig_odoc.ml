@@ -357,7 +357,7 @@ let cobj_to_odoc b cobj ~esy_map =
           else String.Map.find_opt pkg_name esy_map
         | None -> None
       in
-      cobj_deps_to_odoc_deps b deps pkg_name ~esy_deps @@ fun odoc_deps ->
+      cobj_deps_to_odoc_deps b deps ~esy_deps @@ fun odoc_deps ->
       B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
       let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
       let hidden = Doc_cobj.hidden cobj in
@@ -439,7 +439,7 @@ let mlds_to_odoc b pkg pkg_info pkg_odocs mlds =
 
 let html_deps_resolve b deps k =
   let deps = List.rev_map B0_odoc.Html.Dep.to_compile_dep deps in
-  cobj_deps_to_odoc_deps b deps "dummy" k ~esy_deps:None
+  cobj_deps_to_odoc_deps b deps k ~esy_deps:None
 
 let odoc_to_html b ~odoc_deps odoc =
   let theme_uri = theme_dir in
