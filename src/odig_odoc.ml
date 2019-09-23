@@ -317,15 +317,24 @@ let esy_dep_map b =
     in
     let todo_deps = String.Set.diff global_deps done_deps in
     (* Now iterate over all the deps we still need to do *)
-    let child_map, my_deps =
-      String.Set.fold add_deps todo_deps (done_map, global_deps)
+    let child_map, child_deps =
+      String.Set.fold add_deps todo_deps (done_map, String.Set.empty)
+    in
+    (* Add in the deps we already know *)
+    let my_deps =
+      String.Set.fold (fun pkg acc ->
+        match String.Map.find_opt pkg done_map with
+        | None -> failwith "Error: missing data we're supposed to have"
+        | Some pkgs -> String.Set.union acc pkgs)
+        done_deps
+        child_deps
     in
     let my_map = String.Map.add pkg my_deps child_map in
+    let all_deps = String.Set.add pkg my_deps in
     (* At the highest level, we don't care about siblings, and computing
      * union of all packages + dependencies is expensive *)
     if pass_siblings then
-      let total_deps = String.Set.union sibling_deps my_deps in
-      my_map, total_deps
+      my_map, String.Set.union sibling_deps all_deps
     else
       my_map, String.Set.empty
   in
@@ -339,30 +348,28 @@ let esy_dep_map b =
 let cobj_to_odoc b cobj ~esy_map =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
-  let pkg = Doc_cobj.pkg cobj in
-  let pkg_name = String.lowercase @@ Pkg.name pkg in
-  let () = match esy_map with
-    | Some esy_map ->
+  let () =
+      B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
+      cobj_deps b cobj @@ fun deps ->
+      let pkg = Doc_cobj.pkg cobj in
+      let pkg_name = String.lowercase_ascii @@ Pkg.out_dirname ~subver:true pkg in
       let esy_deps =
-        if Pkg.name pkg = "ocaml" then None
-        else String.Map.find_opt pkg_name esy_map
+        match esy_map with
+        | Some esy_map ->
+          (* debug *)
+          (* print_endline @@ "pkg_name is "^pkg_name; *)
+          if pkg_name = "ocaml" then None
+          else String.Map.find_opt pkg_name esy_map
+        | None -> None
       in
-      B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
-      cobj_deps b cobj @@ fun deps ->
-      cobj_deps_to_odoc_deps b deps ~esy_deps @@ fun odoc_deps ->
+      cobj_deps_to_odoc_deps b deps pkg_name ~esy_deps @@ fun odoc_deps ->
       B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
       let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
       let hidden = Doc_cobj.hidden cobj in
       let cobj = Doc_cobj.path cobj in
-      B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
-    | None ->
-      B0_odoc.Compile.Writes.write b.m (Doc_cobj.path cobj) ~to_odoc ~o:writes;
-      cobj_deps b cobj @@ fun deps ->
-      cobj_deps_to_odoc_deps b deps ~esy_deps:None @@ fun odoc_deps ->
-      B0_odoc.Compile.Writes.read b.m writes @@ fun writes ->
-      let pkg = Pkg.out_dirname (Doc_cobj.pkg cobj) in
-      let hidden = Doc_cobj.hidden cobj in
-      let cobj = Doc_cobj.path cobj in
+      (* debug *)
+      print_endline @@ "--- Pkg "^pkg^" deps:";
+      List.iter (fun p -> print_endline @@ Fpath.to_string p) odoc_deps;
       B0_odoc.Compile.cmd b.m ~hidden ~odoc_deps ~writes ~pkg cobj ~o:to_odoc
   in
   to_odoc
@@ -437,7 +444,7 @@ let mlds_to_odoc b pkg pkg_info pkg_odocs mlds =
 
 let html_deps_resolve b deps k =
   let deps = List.rev_map B0_odoc.Html.Dep.to_compile_dep deps in
-  cobj_deps_to_odoc_deps b deps k ~esy_deps:None
+  cobj_deps_to_odoc_deps b deps "dummy" k ~esy_deps:None
 
 let odoc_to_html b ~odoc_deps odoc =
   let theme_uri = theme_dir in
