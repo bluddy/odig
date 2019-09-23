@@ -26,6 +26,20 @@ module Esy = struct
   let under_regex = Str.regexp {|_|}
   let dash_regex = Str.regexp {|-|}
 
+  (* map from lowercase to uppercase names. supplied by user *)
+  let cap_map =
+    let file = Result.to_failure @@ Fpath.of_string "./opam_caps.txt" in
+    match Os.File.exists file with
+    | Ok true ->
+        let r = Os.File.read file in
+        let str = Result.value r ~default:"" in
+        let str_l = String.split_on_char '\n' str in
+        List.fold_left (fun map s ->
+          String.Map.add (String.lowercase s) s map)
+          String.Map.empty
+          str_l
+    | _ -> String.Map.empty
+
   let long_name_of_pkg name ver subver =
     let name =
       Str.global_replace under_regex "XXX" name |>
@@ -38,7 +52,7 @@ module Esy = struct
       ver
       subver
 
-  let name_ver_of_long_name name = 
+  let name_ver_of_long_name name =
     (* Extract version, subversion from esy directory name *)
     try
       let _ = Str.search_forward esy_regex name 0 in
@@ -50,6 +64,11 @@ module Esy = struct
         Str.global_replace twounder_regex "XXX" name_s |>
         Str.global_replace under_regex "-" |>
         Str.global_replace xxx_regex "_"
+      in
+      let name_s =
+        match String.Map.find_opt name_s cap_map with
+        | None -> name_s
+        | Some cap_name -> cap_name
       in
       name_s, version, subversion
     with Not_found ->
