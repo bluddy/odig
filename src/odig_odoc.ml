@@ -303,40 +303,35 @@ let esy_dep_map b =
   *    at lower levels.
   *)
   let rec add_deps ?(pass_siblings=true) pkg ((done_map, sibling_deps) as acc) =
-    let global_deps =
-      try
-        String.Map.find pkg global_dep_map
-      with Not_found ->
-        print_endline @@ "Warning: esy_map build: couldn't find "^pkg;
-        String.Set.empty
-    in
-    (* Find which of the deps have not been done yet *)
-    let done_deps = match String.Map.find_opt pkg done_map with
-      | None -> String.Set.empty
-      | Some s -> s
-    in
-    let todo_deps = String.Set.diff global_deps done_deps in
-    (* Now iterate over all the deps we still need to do *)
-    let child_map, child_deps =
-      String.Set.fold add_deps todo_deps (done_map, String.Set.empty)
-    in
-    (* Add in the deps we already know *)
-    let my_deps =
-      String.Set.fold (fun pkg acc ->
-        match String.Map.find_opt pkg done_map with
-        | None -> failwith "Error: missing data we're supposed to have"
-        | Some pkgs -> String.Set.union acc pkgs)
-        done_deps
-        child_deps
-    in
-    let my_map = String.Map.add pkg my_deps child_map in
-    let all_deps = String.Set.add pkg my_deps in
-    (* At the highest level, we don't care about siblings, and computing
-     * union of all packages + dependencies is expensive *)
-    if pass_siblings then
-      my_map, String.Set.union sibling_deps all_deps
-    else
-      my_map, String.Set.empty
+    (* First see if this pkg was already handled *)
+    match String.Map.find_opt pkg done_map with
+    | Some s ->
+        let done_set =
+          String.Set.union sibling_deps s |>
+          String.Set.add pkg in
+        (done_map, done_set)
+    | None ->
+      (* Find the direct deps of this pkg *)
+      let direct_deps =
+        try
+          String.Map.find pkg global_dep_map
+        with Not_found ->
+          print_endline @@ "Warning: esy_map build: couldn't find "^pkg;
+          String.Set.empty
+      in
+      (* Now iterate over the dependencies *)
+      let done_map', child_deps =
+        String.Set.fold add_deps direct_deps (done_map, String.Set.empty)
+      in
+      let my_map = String.Map.add pkg child_deps done_map' in
+      let pass_deps =
+        if pass_siblings then
+          String.Set.union sibling_deps child_deps |>
+          String.Set.add pkg
+        else
+          String.Set.empty
+      in
+      my_map, pass_deps
   in
   let esy_map, _ =
     String.Set.fold (add_deps ~pass_siblings:false) pkg_set
