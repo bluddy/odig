@@ -341,7 +341,6 @@ let esy_dep_map b =
   in
   esy_map
 
-
 let cobj_to_odoc b cobj ~esy_map =
   let to_odoc = odoc_file_for_cobj b cobj in
   let writes = Fpath.(to_odoc + ".writes") in
@@ -440,9 +439,9 @@ let mlds_to_odoc b pkg pkg_info pkg_odocs mlds =
   in
   loop ~made_index:false [] mlds
 
-let html_deps_resolve b deps k =
+let html_deps_resolve b deps ~esy_deps k =
   let deps = List.rev_map B0_odoc.Html.Dep.to_compile_dep deps in
-  cobj_deps_to_odoc_deps b deps k ~esy_deps:None
+  cobj_deps_to_odoc_deps b deps k ~esy_deps
 
 let odoc_to_html b ~odoc_deps odoc =
   let theme_uri = theme_dir in
@@ -463,7 +462,9 @@ let link_odoc_docdir b pkg pkg_info =
 
 let pkg_to_html b pkg ~esy_map =
   let pkg_info = try Pkg.Map.find pkg (Conf.pkg_infos b.conf) with
-  | Not_found -> assert false
+    | Not_found -> assert false
+  in
+  let pkg_name = String.lowercase_ascii @@ Pkg.out_dirname ~subver:true pkg
   in
   let cobjs = Pkg_info.doc_cobjs pkg_info in
   let mlds = Docdir.odoc_pages (Pkg_info.docdir pkg_info) in
@@ -478,7 +479,14 @@ let pkg_to_html b pkg ~esy_map =
       (* Write all dependencies, then read them back *)
       B0_odoc.Html.Dep.write b.m ~odoc_files pkg_odoc_dir ~o:deps_file;
       B0_odoc.Html.Dep.read b.m deps_file begin fun deps ->
-        html_deps_resolve b deps @@ fun odoc_deps ->
+        let esy_deps =
+          match esy_map with
+          | Some esy_map ->
+            if pkg_name = "ocaml" then None
+            else String.Map.find_opt pkg_name esy_map
+          | None -> None
+        in
+        html_deps_resolve b deps ~esy_deps @@ fun odoc_deps ->
         List.iter (odoc_to_html b ~odoc_deps) odoc_files;
         link_odoc_assets b pkg pkg_info;
         link_odoc_docdir b pkg pkg_info;
