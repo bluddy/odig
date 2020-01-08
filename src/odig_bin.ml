@@ -167,7 +167,7 @@ let doc_cmd background browser pkg_names update no_update show_files conf =
         (Fmt.list Fpath.pp) fs
 
 let odoc_cmd
-    _odoc pkg_names index_title index_intro force trace no_pkg_deps no_tag_index
+    _odoc pkg_names index_title index_intro force no_pkg_deps no_tag_index
     conf
   =
   let pkg_deps = not no_pkg_deps in
@@ -175,16 +175,7 @@ let odoc_cmd
   handle_name_error (find_pkgs conf pkg_names) @@ fun pkgs ->
   handle_some_error
     (odoc_gen conf ~force ~index_title ~index_intro ~pkg_deps ~tag_index pkgs)
-  @@ fun () ->
-  match trace with
-  | None -> 0
-  | Some file ->
-      Log.time (fun _ m -> m "Generating trace") @@ fun () ->
-      let memo = Result.get_ok (Conf.memo conf) in
-      let ops = B00.Memo.ops memo in
-      let t = B0_web.Jsong.to_string (B0_trace.Trace_event.of_ops ops) in
-      handle_some_error (Os.File.write ~force:true ~make_path:true file t) @@
-      fun () -> 0
+  @@ fun () -> 0
 
 let odoc_theme_cmd out_fmt action theme set_default conf =
   let list_themes conf out_fmt =
@@ -528,12 +519,6 @@ let odoc_cmd =
     let env = Arg.env_var "ODIG_ODOC" in
     Arg.(value & opt string "odoc" & info ["odoc"] ~env ~docv:"CMD" ~doc) *)
   in
-  let trace =
-    let doc = "Output build trace in Trace Event format to $(docv)." in
-    let env = Arg.env_var "ODIG_ODOC_TRACE" in
-    let some_path = Arg.some B0_ui.Cli.Arg.path in
-    Arg.(value & opt some_path None & info ["trace"] ~env ~docv:"FILE" ~doc)
-  in
   let force = Term.const false
     (* let doc = "Force generation even if files are up-to-date." in
     Arg.(value & flag & info ["f"; "force"] ~doc) *)
@@ -563,7 +548,7 @@ let odoc_cmd =
     Arg.(value & flag & info ["no-tag-index"] ~doc)
   in
   let cmd = Term.(const odoc_cmd $ odoc $ pkgs_pos $ index_title $ index_intro $
-                  force $ trace $ no_pkg_deps $ no_tag_index)
+                  force $ no_pkg_deps $ no_tag_index)
   in
   Term.(wrap_cmd $ cmd), Term.info "odoc" ~doc ~sdocs ~exits ~man ~man_xrefs
 
