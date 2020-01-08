@@ -1,0 +1,3 @@
+(executable
+  (name odig_bin)
+  (libraries b0 yojson cmdliner str))
