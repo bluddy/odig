@@ -202,7 +202,9 @@ let cobj_deps_to_odoc_deps b deps k ~esy_deps =
               begin match esy_deps with
               | None -> handle_pkg pkg
               | Some esy_deps ->
-                  let name = String.lowercase @@ Pkg.out_dirname ~subver:true pkg in
+                  let name =
+                    Pkg.out_dirname ~subver:true pkg
+                    |> String.lowercase_ascii in
                   (*String.Set.iter (fun s -> print_endline s) esy_deps; *)
                   (* Printf.printf "name = %s, found = %B\n" name
                     (name = "ocaml" || String.Set.mem name esy_deps); *) (* debug *)
@@ -304,7 +306,7 @@ let esy_dep_map b =
   *  @pass_siblings: don't build up siblings at highest level, but do
   *    at lower levels.
   *)
-  let rec add_deps ?(pass_siblings=true) pkg ((done_map, sibling_deps) as acc) =
+  let rec add_deps ?(pass_siblings=true) pkg (done_map, sibling_deps) =
     (* First see if this pkg was already handled *)
     match String.Map.find_opt pkg done_map with
     | Some s ->

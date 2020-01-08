@@ -35,7 +35,7 @@ module Esy = struct
         let str = Result.value r ~default:"" in
         let str_l = String.split_on_char '\n' str in
         List.fold_left (fun map s ->
-          String.Map.add (String.lowercase s) s map)
+          String.Map.add (String.lowercase_ascii s) s map)
           String.Map.empty
           str_l
     | _ -> String.Map.empty
@@ -48,7 +48,7 @@ module Esy = struct
     in
     Printf.sprintf
     "opam__s__%s-opam__c__%s-%s"
-      (String.lowercase name)
+      (String.lowercase_ascii name)
       ver
       subver
 
@@ -98,10 +98,10 @@ module Pkg = struct
     let v = if v = "" then "?" else v in
     Fmt.pf ppf "%a" (Fmt.tty_string [`Fg `Green]) v
 
-  let equal = Pervasives.( = )
-  let compare = Pervasives.compare
+  let equal = Stdlib.( = )
+  let compare = Stdlib.compare
   let compare_by_caseless_name p p' =
-    let n p = String.Ascii.lowercase (name p) in
+    let n p = String.lowercase_ascii (name p) in
     String.compare (n p) (n p')
 
   module T = struct type nonrec t = t let compare = compare end
@@ -276,7 +276,7 @@ module Opam = struct
   let license = list_field "license"
   let maintainer = list_field "maintainer"
   let synopsis = string_field "synopsis"
-  let tags fs = List.rev_map String.Ascii.lowercase @@ list_field "tags" fs
+  let tags fs = List.rev_map String.lowercase_ascii @@ list_field "tags" fs
   let version = string_field "version"
 
   (* Queries *)
@@ -600,7 +600,7 @@ module Odoc_theme = struct
       in
       let ts = Os.Dir.fold_dirs ~recurse:false add_themes dir [] in
       let compare (n0, _) (n1, _) =
-        compare (String.Ascii.lowercase n0) (String.Ascii.lowercase n1)
+        compare (String.lowercase_ascii n0) (String.lowercase_ascii n1)
       in
       List.sort compare (Result.to_failure ts)
     with Failure e -> Log.err (fun m -> m "theme list: %s" e); []
