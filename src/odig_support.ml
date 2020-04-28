@@ -4,8 +4,8 @@
    %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
-open B0_std
-open B00
+(*open B0_std
+open B00*)
 
 module Digest = struct
   include Digest

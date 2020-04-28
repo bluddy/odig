@@ -10,8 +10,7 @@
 
 (** {1:support Odig support} *)
 
-open B0_std
-open B00
+open Astring
 
 (** Digests. *)
 module Digest : sig
@@ -352,7 +351,7 @@ module Conf : sig
   (** The type for configuration. *)
 
   val v :
-    ?cachedir:Fpath.t -> ?libdir:Fpath.t -> ?docdir:Fpath.t ->
+    ?libdir:Fpath.t -> ?docdir:Fpath.t ->
     ?sharedir:Fpath.t -> ?odoc_theme:Odoc_theme.name -> esy_mode:bool ->
     max_spawn:int option -> unit -> (t, string) result
   (** [v ~cachedir ~libdir ~docdir ~sharedir ~odoc_theme ~esy_mode ~max_spawn ()] is a
@@ -407,12 +406,6 @@ module Conf : sig
       to define the default odoc theme. *)
 
   (** {1:props Properties} *)
-
-  val memo : t -> (Memo.t, string) result
-  (** [memo conf] is a memoizer for configuration [conf]. *)
-
-  val memodir : t -> Fpath.t
-  (** [memodir c] is [c]'s memoizer cache directory. *)
 
   val pkgs : t -> Pkg.t list
   (** [pkgs conf] are the packages of configuration [conf]. *)
