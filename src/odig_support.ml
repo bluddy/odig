@@ -84,7 +84,7 @@ module Pkg = struct
   let path x = x.path
   let v ?version name path = {name; version; path}
 
-  let out_dirname ?(subver=true) x = match x.version with
+  let out_dirname ?(subver=true) x : string = match x.version with
     | Some (v, s) when subver -> Fmt.str "%s.%s-%s" x.name v s
     | Some (v, _) -> Fmt.str "%s.%s" x.name v
     | _ -> x.name
@@ -330,7 +330,9 @@ module Opam = struct
 
   let query qpkgs ~esy_mode =
     if esy_mode then
-      (* For esy_mode, we want to use just the name of the package *)
+      (* For esy_mode, we want to use just the name of the package
+       * We also don't want to check for `/opam` files
+       *)
       let pkgs = Pkg.Set.of_list qpkgs |> Pkg.Set.elements in
       let opams = List.map (fun p -> Pkg.out_dirname ~subver:false p) pkgs in
       let no_data pkgs = List.map (fun p -> (p, [])) pkgs in
@@ -342,12 +344,12 @@ module Opam = struct
           (* TODO: OPAM can't handle multiple packages of the same lib
           * with different versions.
           * For now, we'll invoke the command once per package *)
-          let show pkg = Cmd.(show % field_arg % pkg) in
+          let show (pkg:string) = Cmd.(show % field_arg % pkg) in
           let opam_string pkg =
             match
               Log.time (fun _ m -> m "opam show") @@ fun () ->
               let stderr = `Stdo (Os.Cmd.out_null) in
-              Os.Cmd.run_out ~stderr (show pkg)
+              Os.Cmd.run_out ~stderr ~trim:true (show pkg)
             with
             | Error e -> Log.err (fun m -> m "%s" e); ""
             | Ok out -> out
@@ -362,37 +364,31 @@ module Opam = struct
           try List.map (find_info infos) qpkgs with
           | Not_found -> assert false
     else
-      let pkgs = Pkg.Set.of_list qpkgs in
-      let add_opam p acc = match file p with None -> acc | Some f -> f :: acc in
-      let opams = Pkg.Set.fold add_opam pkgs [] in
-      let no_data pkgs = List.map (fun p -> (p, [])) pkgs in
-      match Lazy.force bin with
-      | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
-      | Ok opam ->
-          if opams = [] then no_data qpkgs else
-          let show = Cmd.(path opam % "show" % "--normalise" % "--no-lint") in
-          (* TODO: OPAM can't handle multiple packages of the same lib
-          * with different versions.
-          * For now, we'll invoke the command once per package *)
-          let show pkg = Cmd.(show % field_arg %% path pkg) in
-          let opam_string pkg =
-            match
-              Log.time (fun _ m -> m "opam show") @@ fun () ->
-              let stderr = `Stdo (Os.Cmd.out_null) in
-              Os.Cmd.run_out ~stderr (show pkg)
-            with
-            | Error e -> Log.err (fun m -> m "%s" e); ""
-            | Ok out -> out
-          in
-          let str = List.map opam_string opams |> String.concat "\n" in
-          let lines = String.cuts_left ~sep:"\n" str in
-          let infos = parse_lines String.Map.empty lines in
-          let find_info is p = match String.Map.find (Pkg.name p) is with
+    let pkgs = Pkg.Set.of_list qpkgs in
+    let add_opam p acc = match file p with None -> acc | Some f -> f :: acc in
+    let opams = Pkg.Set.fold add_opam pkgs [] in
+    let no_data pkgs = List.map (fun p -> (p, [])) pkgs in
+    match Lazy.force bin with
+    | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
+    | Ok opam ->
+        if opams = [] then no_data qpkgs else
+        let show = Cmd.(path opam % "show" % "--normalise" % "--no-lint") in
+        let show = Cmd.(show % field_arg %% paths opams) in
+        match
+          Log.time (fun _ m -> m "opam show") @@ fun () ->
+          let stderr = `Stdo (Os.Cmd.out_null) in
+          Os.Cmd.run_out ~stderr ~trim:true show
+        with
+        | Error e -> Log.err (fun m -> m "%s" e); no_data qpkgs
+        | Ok out ->
+            let lines = String.cuts_left ~sep:"\n" out in
+            let infos = parse_lines String.Map.empty lines in
+            let find_info is p = match String.Map.find (Pkg.name p) is with
             | exception Not_found -> p, []
             | i -> p, i
-          in
-          try List.map (find_info infos) qpkgs with
-          | Not_found -> assert false
+            in
+            try List.map (find_info infos) qpkgs with
+            | Not_found -> assert false
 end
 
 module Doc_dir = struct
@@ -599,10 +595,10 @@ module Conf = struct
     let memo =
       lazy (memo ~cwd:cache_dir ~cache_dir:b0_cache_dir ~trash_dir ~jobs)
     in
-    let pkgs = lazy (Pkg.of_dir lib_dir) in
+    let pkgs = lazy (Pkg.of_dir ~esy_mode lib_dir) in
     let pkg_infos = Lazy.from_fun @@ fun () ->
       let add acc (p, i) = Pkg.Map.add p i acc in
-      let pkg_infos = Pkg_info.query doc_dir (Lazy.force pkgs) in
+      let pkg_infos = Pkg_info.query ~doc_dir ~esy_mode (Lazy.force pkgs) in
       List.fold_left add Pkg.Map.empty pkg_infos
     in
     { b0_cache_dir; b0_log_file; cache_dir; cwd; doc_dir; html_dir; jobs;
