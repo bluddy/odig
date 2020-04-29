@@ -33,7 +33,7 @@ module Esy = struct
         let str = Result.value r ~default:"" in
         let str_l = String.split_on_char '\n' str in
         List.fold_left (fun map s ->
-          String.Map.add (String.lowercase s) s map)
+          String.Map.add (String.Ascii.lowercase s) s map)
           String.Map.empty
           str_l
     | _ -> String.Map.empty
@@ -46,7 +46,7 @@ module Esy = struct
     in
     Printf.sprintf
     "opam__s__%s-opam__c__%s-%s"
-      (String.lowercase name)
+      (String.Ascii.lowercase name)
       ver
       subver
 
@@ -90,7 +90,7 @@ module Pkg = struct
     | _ -> x.name
 
   let pp ppf x = Fmt.pf ppf "%s %a" (name x)
-    (Fmt.tty [`Faint] Fpath.pp) (path x)
+    (Fmt.tty [`Faint] Fpath.pp_quoted) (path x)
   let pp_name ppf x = Fmt.string ppf (name x)
   let pp ppf (n, p) = Fmt.pf ppf "%s %a" n (Fmt.tty [`Faint] Fpath.pp_quoted) p
   let pp_name ppf (n, p) = Fmt.string ppf n
@@ -109,7 +109,7 @@ module Pkg = struct
   module Map = Map.Make (T)
 
   let of_dir ~esy_mode dir =
-    Log.time (fun _ m -> m "package list of %a" Fpath.pp dir) @@
+    Log.time (fun _ m -> m "package list of %a" Fpath.pp_quoted dir) @@
     fun () ->
     let ocaml_pkg () =
       let ocaml_where = Cmd.(arg "ocamlc" % "-where") in
