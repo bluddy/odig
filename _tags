@@ -1,5 +1,5 @@
 true : bin_annot, safe_string
-true : package(b0.std), package(b0.b00), package(b0.care), package(yojson)
+true : package(b0.b00.std), package(b0.b00), package(b0.b00.kit), package(yojson)
 
 <src> : include
 <src/odig_bin.*> : package(cmdliner unix str)
@@ -9,3 +9,4 @@ true : package(b0.std), package(b0.b00), package(b0.care), package(yojson)
 <test> : include
 <sample/_opam> : -traverse
 <_opam> : -traverse
+<_b0> : -traverse

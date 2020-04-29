@@ -1,7 +1,6 @@
 (*---------------------------------------------------------------------------
    Copyright (c) 2018 The odig programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
-   %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
 (** [odoc] API reference generation.
@@ -12,12 +11,9 @@
 
 open Odig_support
 
-val set_theme : Conf.t -> Odoc_theme.t -> (unit, string) result
-(** [set_theme t] sets theme [odoc_theme] in configuration [conf]. *)
-
 val gen :
   Conf.t -> force:bool -> index_title:string option ->
-  index_intro:B0_std.Fpath.t option -> pkg_deps:bool -> tag_index:bool ->
+  index_intro:B00_std.Fpath.t option -> pkg_deps:bool -> tag_index:bool ->
   Pkg.t list -> (unit, string) result
 (** [gen c ~force ~index_intro ~pkg_deps ~tag_index pkgs]
     generates API reference for packages [pkgs].
@@ -32,6 +28,8 @@ val gen :
     {- [tag_index] if [true] a tag index is generated on the package list
        page and package pages hyperlink into it from the package information
        section.}} *)
+
+val install_theme : Conf.t -> B00_odoc.Theme.t option -> (unit, string) result
 
 (*---------------------------------------------------------------------------
    Copyright (c) 2018 The odig programmers

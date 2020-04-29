@@ -1,3 +1,35 @@
+v0.0.5 2019-03-11 La Forclaz (VS)
+---------------------------------
+
+- Rework the `odoc-theme` command. The `set` command now
+  unconditionally writes to `~/.conf/odig/odoc-theme` and sets the
+  theme for generated doc (the `--default` flag no longer exists).
+  The `default` command is renamed to `get`, a `--config` option is
+  added to get the theme actually written in the configuration file.
+- Add theme `odig.default`, `gruvbox` and `solarized`. These themes
+  automatically switch between their corresponding light or dark 
+  version acccording to the user browser preference (#54).
+- Make `odig.default` the default theme instead of `odoc.default`.
+- Generate package index page even if some package fails (#57).
+- Hide anchoring links to screen readers on odig generated pages (#55).
+- Remove the `--trace` option of `odig odoc` and corresponding
+  `ODIG_ODOC_TRACE` variable for generating a build log in Event trace
+  format. See the `odig log` command. Use `odig log --trace-event` to
+  generate what `--trace` did.
+- For consistency with other tools, options `--{cache,doc,lib,share}dir` 
+  are renamed to `--{cache,doc,lib,share}-dir` and corresponding 
+  environment variable from `ODIG_{CACHE,DOC,LIB,SHARE}DIR` to
+  `ODIG_{CACHE,DOC,LIB,SHARE}_DIR`.
+- mld only packages: work around `odoc html-deps` bug (#50).
+- Package landing pages: fix cache invalidation. In particular opam metadata
+  changes did not retrigger a rebuild.
+- `gh-pages-amend` tool, add a `--cname-file` option to set
+  the `CNAME` file in gh-pages.
+- Fix `META` file (#52). Thanks to Kye W. Shi for the report.
+- Fix 4.08 `Pervasives` deprecation.
+- Require OCaml >= 4.05.0 
+
+
 v0.0.4 2019-03-08 La Forclaz (VS)
 ---------------------------------
 
@@ -24,7 +56,7 @@ v0.0.4 2019-03-08 La Forclaz (VS)
   `rresult`, `asetmap`, `fpath`, `logs`, `mtime`, `bos`, `webbrowser` and
   `opam-format`.
 
-## Removals
+### Removals
 
 - The best-effort `ocamldoc` support and corresponding command are dropped.
 - The `metagen` and `linkable` experimental tools are gone.

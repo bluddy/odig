@@ -1,7 +1,6 @@
 (*---------------------------------------------------------------------------
    Copyright (c) 2018 The odig programmers. All rights reserved.
    Distributed under the ISC license, see terms at the end of the file.
-   %%NAME%% %%VERSION%%
   ---------------------------------------------------------------------------*)
 
 (** [Odig] support library.
@@ -10,7 +9,7 @@
 
 (** {1:support Odig support} *)
 
-open B0_std
+open B00_std
 open B00
 
 (** Digests. *)
@@ -209,9 +208,9 @@ module Opam : sig
 end
 
 (** Lookup package documentation directory. *)
-module Docdir : sig
+module Doc_dir : sig
 
-  (** {1:docdir Package documentation directory} *)
+  (** {1:doc_dir Package documentation directory} *)
 
   type t
   (** The type for documentation directory information. *)
@@ -239,8 +238,8 @@ module Docdir : sig
 
   (** {1:query Queries} *)
 
-  val of_pkg : docdir:Fpath.t -> Pkg.t -> t
-  (** [query ~docdir pkg] queries the documentation directory [docdir]
+  val of_pkg : doc_dir:Fpath.t -> Pkg.t -> t
+  (** [query ~doc_dir pkg] queries the documentation directory [doc_dir]
       for documentation about [pkg]. *)
 end
 
@@ -258,8 +257,8 @@ module Pkg_info : sig
   val doc_cobjs : t -> Doc_cobj.t list
   (** [doc_cobjs i] are the documentation compilation objects of [i]. *)
 
-  val docdir : t -> Docdir.t
-  (** [docdir i] is the docdir information of [i]. *)
+  val doc_dir : t -> Doc_dir.t
+  (** [doc_dir i] is the doc dir information of [i]. *)
 
   val opam : t -> Opam.t
   (** [opam i] is the opam information of [i]. *)
@@ -290,57 +289,44 @@ module Pkg_info : sig
       {!Doc_cobj.of_pkg}, {!Opam.query} and {!Docdir.of_pkg}. *)
 end
 
-(** Odoc theme support. *)
-module Odoc_theme : sig
+(** Odig environment variables. *)
+module Env : sig
 
-  (** {1:names Themes names} *)
+  (** {1:env Environment variables} *)
 
-  type name = string
-  (** The type for theme names. *)
+  val b0_cache_dir : string
+  (** [b0_cache_dir] is the environment variable that can be used to
+      define the odig b0 cache directory. *)
 
-  val default : name
-  (** [default] is the default odoc theme (["odoc.default"]). *)
+  val b0_log_file : string
+  (** [b0_log_file] is the environment variable that can be used to
+      define the odig b0 log_file. *)
 
-  (** {2:user User preference} *)
+  val cache_dir : string
+  (** [cache_dir] is the environment variable that can be used to
+      define the odig cache directory. *)
 
-  val config_file : Fpath.t
-  (** [config_file] is the file relative to the user's
-      {!Os.Dir.config} directory for specifying the odoc theme. *)
+  val color : string
+  (** [color] is the variable used to specify TTY styling. *)
 
-  val get_user_preference : unit -> (name, string) result
-  (** [get_user_preference ()] is the user prefered theme name or
-      {!default} if the user has no preference. *)
+  val doc_dir : string
+  (** [doc_dir] is the environment variable that can be used to
+      define a doc dir. *)
 
-  val set_user_preference : name -> (unit, string) result
-  (** [set_user_preference t] sets the user prefered theme to [t]. *)
+  val lib_dir : string
+  (** [lib_dir] is the environment variable that can be used to
+      define a lib dir. *)
 
-  (** {1:themes Themes} *)
+  val odoc_theme : string
+  (** [odoc_theme] is the environment variable that can be used
+      to define the default odoc theme. *)
 
-  type t
-  (** The type for themes. *)
+  val share_dir : string
+  (** [share_dir_env] is the environment variable that can be used to
+      define a share dir. *)
 
-  val name : t -> name
-  (** [name t] is the theme name. *)
-
-  val path : t -> Fpath.t
-  (** [path t] is the path to the theme directory. *)
-
-  val pp_name : t Fmt.t
-  (** [pp_name] formats a theme's name. *)
-
-  val pp : t Fmt.t
-  (** [pp] formats a theme. *)
-
-  (** {1:queries Queries} *)
-
-  val of_dir : Fpath.t -> t list
-  (** [of_dir sharedir] are the themes found in [sharedir]. These are
-      formed by looking up in [sharedir] for directory paths of the
-      form [PKG/odoc-theme/ID/] in [sharedir] which yields a theme
-      named by [PKG.ID]. *)
-
-  val find : name -> t list -> (t, string) result
-  (** [find n themes] finds the theme named [n] in [themes]. *)
+  val verbosity : string
+  (** [verbosity] is the variable used to specify log verbosity. *)
 end
 
 (** Odig configuration. *)
@@ -352,73 +338,76 @@ module Conf : sig
   (** The type for configuration. *)
 
   val v :
-    ?cachedir:Fpath.t -> ?libdir:Fpath.t -> ?docdir:Fpath.t ->
-    ?sharedir:Fpath.t -> ?odoc_theme:Odoc_theme.name -> esy_mode:bool ->
-    max_spawn:int option -> unit -> (t, string) result
-  (** [v ~cachedir ~libdir ~docdir ~sharedir ~odoc_theme ~esy_mode ~max_spawn ()] is a
-      configuration with given attributes. If unspecified they are
-      discovered. *)
+    b0_cache_dir:Fpath.t -> b0_log_file:Fpath.t -> cache_dir:Fpath.t ->
+    cwd:Fpath.t -> doc_dir:Fpath.t -> html_dir:Fpath.t -> jobs:int ->
+    lib_dir:Fpath.t -> log_level:Log.level -> odoc_theme:B00_odoc.Theme.name ->
+    share_dir:Fpath.t -> tty_cap:Tty.cap -> esy_mode:bool -> unit -> t
+  (** [v] consructs a configuration with given attributes. See
+      the corresponding accessors for details. *)
 
-  val cachedir : t -> Fpath.t
-  (** [cachedir c] is [c]'s cache directory. *)
+  val b0_cache_dir : t -> Fpath.t
+  (** [b0_cache_dir c] is [c]'s b0 cache directory. *)
 
-  val libdir : t -> Fpath.t
-  (** [libdir c] is [c]'s library directory. *)
+  val b0_log_file : t -> Fpath.t
+  (** [b0_log_file c] is [c]'s b0 log file. *)
 
-  val docdir : t -> Fpath.t
-  (** [docdir c] is [c]'s documentation directory. *)
+  val cache_dir : t -> Fpath.t
+  (** [cache_dir c] is [c]'s cache directory. *)
 
-  val sharedir : t -> Fpath.t
-  (** [sharedir c] is [c]'s share directory. *)
+  val cwd : t -> Fpath.t
+  (** [cwd c] is [c]'s current working directory. *)
 
-  val htmldir : t -> Fpath.t
-  (** [htmldir c] is [c]'s HTML directory, where the API docs
-      are generated (derived from {!cachedir}). *)
-
-  val odoc_theme : t -> string
-  (** [odoc_theme c] is [c]'s odoc theme to use. *)
+  val doc_dir : t -> Fpath.t
+  (** [doc_dir c] is [c]'s documentation directory. *)
 
   val esy_mode : t -> bool
   (** [esy_mode c] is whether we're in esy mode. *)
 
-  val pp : t Fmt.t
-  (** [pp] formats configurations. *)
+  val lib_dir : t -> Fpath.t
+  (** [lib_dir c] is [c]'s library directory. *)
 
-  (** {1:env Environment variables} *)
+  val log_level : t -> Log.level
+  (** [log_level c] is [c]'s log level. *)
 
-  val cachedir_env : string
-  (** [cachedir_env] is the environment variable that can be used to
-      define the odig cache directory. *)
+  val html_dir : t -> Fpath.t
+  (** [html_dir c] is [c]'s HTML directory, where the API docs
+      are generated (derived from {!cache_dir}). *)
 
-  val libdir_env : string
-  (** [libdir_env] is the environment variable that can be used to
-      define a libdir. *)
+  val odoc_theme : t -> B00_odoc.Theme.name
+  (** [odoc_theme c] is [c]'s odoc theme to use. *)
 
-  val docdir_env : string
-  (** [docdir_env] is the environment variable that can be used to
-      define a docdir. *)
-
-  val sharedir_env : string
-  (** [sharedir_env] is the environment variable that can be used to
-      define a sharedir. *)
-
-  val odoc_theme_env : string
-  (** [odoc_theme_env] is the environment variable that can be used
-      to define the default odoc theme. *)
-
-  (** {1:props Properties} *)
+  val jobs : t -> int
+  (** [jobs c] is the maximum number of spawns. *)
 
   val memo : t -> (Memo.t, string) result
   (** [memo conf] is a memoizer for configuration [conf]. *)
-
-  val memodir : t -> Fpath.t
-  (** [memodir c] is [c]'s memoizer cache directory. *)
 
   val pkgs : t -> Pkg.t list
   (** [pkgs conf] are the packages of configuration [conf]. *)
 
   val pkg_infos : t -> Pkg_info.t Pkg.Map.t
   (** [pkg_infos conf] are the package information of {!pkgs}. *)
+
+  val share_dir : t -> Fpath.t
+  (** [share_dir c] is [c]'s share directory. *)
+
+  val tty_cap : t -> Tty.cap
+  (** [tty_cap c] is [c]'s tty capability. *)
+
+  val pp : t Fmt.t
+  (** [pp] formats configurations. *)
+
+  (** {1:setup Setup} *)
+
+  val setup_with_cli :
+    b0_cache_dir:Fpath.t option -> b0_log_file:Fpath.t option ->
+    cache_dir:Fpath.t option -> doc_dir:Fpath.t option -> jobs:int option ->
+    lib_dir:Fpath.t option -> log_level:Log.level option ->
+    odoc_theme:B00_odoc.Theme.name option -> share_dir:Fpath.t option ->
+    tty_cap:Tty.cap option option -> unit -> (t, string) result
+  (** [setup_with_cli] determines and setups a configuration with the given
+      values. These are expected to have been determined by environment
+      variables and command line arguments. *)
 end
 
 (*---------------------------------------------------------------------------
